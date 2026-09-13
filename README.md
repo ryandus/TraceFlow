@@ -1,20 +1,38 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# 🔍 TraceFlow
 
-# Run and deploy your AI Studio app
-
-This contains everything you need to run your app locally.
-
-View your app in AI Studio: https://ai.studio/apps/43acd7ce-aefa-46c7-95ef-8401d6237071
-
-## Run Locally
-
-**Prerequisites:**  Node.js
+*An Evidence Custody & Hash Manifest Engine*
 
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+
+*Engineered by R. Hanks*
+
+**[Launch Live TraceFlow Application →](https://github.com/ryandus/TraceFlow)**
+
+---
+
+> **TraceFlow** is a client-side digital forensics utility designed for incident response handlers (DFIR), forensic examiners, and investigators. It computes cryptographically validated dual-hash manifests (SHA-256 / MD5) and generates tamper-evident chain-of-custody ledgers in strict alignment with ISO/IEC 27037 standards.
+
+## ✨ Key Features
+
+* **🚀 Dual-Algorithm Simultaneous Hashing:** Computes SHA-256 and MD5 digests concurrently using stream-chunked buffers to prevent UI freezing on multi-gigabyte forensic images (`.E01`, `.001`, `.dd`, `.vmdk`, triage archives).
+* **🔒 Zero Server Uploads:** All hashing and file analysis occur strictly in browser memory via the Web Crypto API (SubtleCrypto) and Streams API. Evidentiary data never traverses a network.
+* **📋 ISO/IEC 27037 Case Metadata:** Captures examiner credentials, write-blocker enforcement status, acquisition source types, and timestamped intake notes.
+* **🔗 Append-Only Chain-of-Custody Ledger:** Track custody handoffs, evidence tape seal numbers, packaging conditions, and digital signatures compliant with FRE 901.
+* **💾 Local State Persistence:** Stores active manifests and custody sessions in client-side IndexedDB with auto-save redundancy.
+
+## 📑 Forensic Export Formats
+
+* 📄 **Forensic Legal PDF** (with print-optimized layout)
+* 🤖 **Cryptographic Verification JSON** (machine-readable ISO 8601 schema)
+* 📊 **eDiscovery CSV** (compatible with Relativity, Nuix, or court exhibit indices)
+
+## 🛠️ Tech Stack
+
+* **Frontend:** TypeScript, React, Tailwind CSS
+* **Cryptography:** Web Crypto API (SubtleCrypto), crypto-js (streamed MD5)
+* **Persistence:** Client-side IndexedDB
+* **Build & CI/CD:** Vite, Bun, GitHub Actions, GitHub Pages
+
+```
+
+```
