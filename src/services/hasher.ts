@@ -48,15 +48,41 @@ export class ForensicHashEngine {
     return this.isPaused;
   }
 
-  private async checkPauseAndAbort(signal: AbortSignal): Promise<void> {
-    if (signal.aborted) {
-      throw new DOMException('Hashing operation was cancelled by examiner', 'AbortError');
+  public reset() {
+    this.isPaused = false;
+    if (this.pausePromiseResolver) {
+      this.pausePromiseResolver();
+      this.pausePromiseResolver = null;
     }
-    if (this.isPaused) {
-      await new Promise<void>((resolve) => {
-        this.pausePromiseResolver = resolve;
-      });
+  }
+
+  /**
+   * Reads a Blob or File slice into an ArrayBuffer with FileReader fallback
+   * to guard against cross-realm and iframe sandboxing restrictions.
+   */
+  private async readBlobChunk(chunk: Blob): Promise<ArrayBuffer> {
+    if (typeof chunk.arrayBuffer === 'function') {
+      try {
+        return await chunk.arrayBuffer();
+      } catch (err) {
+        console.warn('chunk.arrayBuffer() failed, falling back to FileReader:', err);
+      }
     }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (reader.result instanceof ArrayBuffer) {
+          resolve(reader.result);
+        } else {
+          reject(new Error('FileReader did not return an ArrayBuffer'));
+        }
+      };
+      reader.onerror = () => {
+        reject(reader.error || new Error('FileReader failed to read file chunk'));
+      };
+      reader.readAsArrayBuffer(chunk);
+    });
   }
 
   /**
@@ -67,6 +93,9 @@ export class ForensicHashEngine {
     onProgress?: (bytesProcessed: number, percent: number) => void,
     externalSignal?: AbortSignal
   ): Promise<ChunkHashResult> {
+    // Ensure engine is not in a paused state when starting a file
+    this.reset();
+
     // Zero-byte edge case handling per ISO/IEC 27037
     if (file.size === 0) {
       if (onProgress) onProgress(0, 100);
@@ -95,10 +124,13 @@ export class ForensicHashEngine {
 
       const end = Math.min(offset + CHUNK_SIZE, totalSize);
       const chunk = file.slice(offset, end);
-      const arrayBuffer = await chunk.arrayBuffer();
+      const arrayBuffer = await this.readBlobChunk(chunk);
+
+      // Convert to Uint8Array for js-sha256 to ensure cross-realm ArrayBuffer.isView succeeds
+      const uint8 = new Uint8Array(arrayBuffer);
 
       spark.append(arrayBuffer);
-      sha.update(arrayBuffer);
+      sha.update(uint8);
 
       offset = end;
       const percent = Math.min(100, Math.round((offset / totalSize) * 100));

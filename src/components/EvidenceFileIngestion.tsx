@@ -55,8 +55,31 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
-    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      onFilesSelected(e.dataTransfer.files);
+
+    const droppedFiles: File[] = [];
+
+    // Extract files from DataTransferItemList if available (supports modern drop handling)
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) {
+            droppedFiles.push(file);
+          }
+        }
+      }
+    }
+
+    // Fallback to dataTransfer.files if items did not produce files
+    if (droppedFiles.length === 0 && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        droppedFiles.push(e.dataTransfer.files[i]);
+      }
+    }
+
+    if (droppedFiles.length > 0) {
+      onFilesSelected(droppedFiles);
     }
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { 
   Copy, 
   Check, 
@@ -12,7 +12,11 @@ import {
   HardDrive, 
   FileText,
   RotateCcw,
-  Sparkles
+  Sparkles,
+  Loader2,
+  Clock,
+  UploadCloud,
+  FilePlus2
 } from 'lucide-react';
 import { EvidenceFile, HashVerificationStatus } from '../types/forensic';
 import { formatBytes } from '../services/hasher';
@@ -23,6 +27,8 @@ interface EvidenceFileTableProps {
   onRemoveFile: (fileId: string) => void;
   onClearFiles: () => void;
   onBulkVerifyPaste: (pastedText: string) => void;
+  onFilesSelected?: (files: FileList | File[]) => void;
+  onRecalculateFile?: (fileId: string) => void;
 }
 
 export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
@@ -31,12 +37,55 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
   onRemoveFile,
   onClearFiles,
   onBulkVerifyPaste,
+  onFilesSelected,
+  onRecalculateFile,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'verified' | 'mismatch' | 'unverified'>('all');
   const [copiedHashKey, setCopiedHashKey] = useState<string | null>(null);
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkInputText, setBulkInputText] = useState('');
+  const [isDragOverTable, setIsDragOverTable] = useState(false);
+  const tableFileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleTableDragOver = (e: React.DragEvent) => {
+    if (!onFilesSelected) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverTable(true);
+  };
+
+  const handleTableDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverTable(false);
+  };
+
+  const handleTableDrop = (e: React.DragEvent) => {
+    if (!onFilesSelected) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOverTable(false);
+
+    const droppedFiles: File[] = [];
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === 'file') {
+          const file = item.getAsFile();
+          if (file) droppedFiles.push(file);
+        }
+      }
+    }
+    if (droppedFiles.length === 0 && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        droppedFiles.push(e.dataTransfer.files[i]);
+      }
+    }
+    if (droppedFiles.length > 0) {
+      onFilesSelected(droppedFiles);
+    }
+  };
 
   const handleCopy = (text: string, key: string) => {
     if (!text || text === 'PENDING') return;
@@ -65,7 +114,43 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
   const totalCount = files.length;
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-md space-y-0">
+    <div 
+      onDragOver={handleTableDragOver}
+      onDragLeave={handleTableDragLeave}
+      onDrop={handleTableDrop}
+      className={`bg-slate-900 border rounded-xl overflow-hidden shadow-md space-y-0 transition-all duration-150 relative ${
+        isDragOverTable
+          ? 'border-cyan-400 ring-2 ring-cyan-500/30 bg-cyan-950/20'
+          : 'border-slate-800'
+      }`}
+    >
+      {/* Visual drag-over banner */}
+      {isDragOverTable && (
+        <div className="absolute inset-0 z-30 bg-cyan-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 border-2 border-dashed border-cyan-400 rounded-xl pointer-events-none animate-in fade-in duration-150">
+          <UploadCloud className="w-12 h-12 text-cyan-400 animate-bounce mb-2" />
+          <h4 className="text-base font-bold text-slate-100 font-mono">
+            Drop Evidence Files to Calculate Hashes
+          </h4>
+          <p className="text-xs text-cyan-300 font-mono mt-1">
+            Immediate dual-stream SHA-256 + MD5 ingestion will start
+          </p>
+        </div>
+      )}
+
+      {/* Hidden file input for table fallback */}
+      <input
+        ref={tableFileInputRef}
+        type="file"
+        multiple
+        onChange={(e) => {
+          if (e.target.files && onFilesSelected) {
+            onFilesSelected(e.target.files);
+            e.target.value = '';
+          }
+        }}
+        className="hidden"
+      />
+
       {/* Table Header Controls */}
       <div className="p-4 bg-slate-900/90 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2.5">
@@ -181,12 +266,28 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
             {filteredFiles.length === 0 ? (
               <tr>
                 <td colSpan={7} className="py-12 text-center text-slate-500">
-                  <div className="max-w-sm mx-auto space-y-2">
-                    <FileText className="w-8 h-8 mx-auto text-slate-600" />
-                    <p className="text-sm font-medium text-slate-400">No evidence items match filter</p>
-                    <p className="text-xs text-slate-500">
-                      Drag and drop evidence files or click "Load Forensic Sample Data" above.
-                    </p>
+                  <div className="max-w-md mx-auto space-y-3 p-4">
+                    <div className="w-12 h-12 mx-auto rounded-full bg-slate-800/80 border border-slate-700/60 flex items-center justify-center text-cyan-400">
+                      <FileText className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-slate-300 font-mono">No evidence items in current view</p>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Drag and drop evidence files directly onto this table, or select files to begin cryptographic verification.
+                      </p>
+                    </div>
+                    {onFilesSelected && (
+                      <div className="pt-2">
+                        <button
+                          type="button"
+                          onClick={() => tableFileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold bg-cyan-950/60 hover:bg-cyan-900/60 text-cyan-300 border border-cyan-700/60 transition active:scale-95 shadow-sm"
+                        >
+                          <FilePlus2 className="w-3.5 h-3.5 text-cyan-400" />
+                          Select Files to Ingest & Hash
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </td>
               </tr>
@@ -194,6 +295,9 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
               filteredFiles.map((file, index) => {
                 const isMatch = file.verificationStatus === 'match';
                 const isMismatch = file.verificationStatus === 'mismatch';
+                const isCalculating = file.hashingStatus === 'hashing';
+                const isQueued = file.hashingStatus === 'pending';
+                const isError = file.hashingStatus === 'error';
 
                 return (
                   <tr
@@ -246,60 +350,122 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
 
                     {/* SHA-256 */}
                     <td className="py-3 px-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-1 group">
-                          <span
-                            className={`font-mono text-[11px] break-all leading-tight select-all ${
-                              isMatch && file.expectedHash?.toLowerCase() === file.sha256.toLowerCase()
-                                ? 'text-emerald-400 font-bold'
-                                : 'text-slate-300'
-                            }`}
-                          >
-                            {file.sha256}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(file.sha256, `${file.id}-sha256`)}
-                            className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition opacity-70 group-hover:opacity-100 shrink-0"
-                            title="Copy full SHA-256 digest"
-                          >
-                            {copiedHashKey === `${file.id}-sha256` ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                      {isCalculating ? (
+                        <div className="flex items-center gap-1.5 text-cyan-400 font-mono text-[11px] py-1 animate-pulse">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                          <span>Calculating SHA-256...</span>
                         </div>
-                      </div>
+                      ) : isQueued ? (
+                        <div className="flex items-center gap-1.5 text-amber-400/80 font-mono text-[11px] py-1">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span>Queued in batch...</span>
+                        </div>
+                      ) : isError ? (
+                        <div className="space-y-1 py-1">
+                          <div className="flex items-center gap-1 text-rose-400 font-mono text-[11px]">
+                            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate max-w-[200px]" title={file.errorMessage || 'Hash calculation failed'}>
+                              {file.errorMessage || 'Hash failed'}
+                            </span>
+                          </div>
+                          {onRecalculateFile && (
+                            <button
+                              type="button"
+                              onClick={() => onRecalculateFile(file.id)}
+                              className="inline-flex items-center gap-1 text-[10.5px] text-cyan-400 hover:text-cyan-300 font-mono underline"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Retry Calculation
+                            </button>
+                          )}
+                        </div>
+                      ) : file.sha256 ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-1 group">
+                            <span
+                              className={`font-mono text-[11px] break-all leading-tight select-all ${
+                                isMatch && file.expectedHash?.toLowerCase() === file.sha256.toLowerCase()
+                                  ? 'text-emerald-400 font-bold'
+                                  : 'text-slate-300'
+                              }`}
+                            >
+                              {file.sha256}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(file.sha256, `${file.id}-sha256`)}
+                              className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition opacity-70 group-hover:opacity-100 shrink-0"
+                              title="Copy full SHA-256 digest"
+                            >
+                              {copiedHashKey === `${file.id}-sha256` ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="py-1">
+                          {onRecalculateFile ? (
+                            <button
+                              type="button"
+                              onClick={() => onRecalculateFile(file.id)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10.5px] font-mono font-medium transition active:scale-95"
+                            >
+                              <RotateCcw className="w-3 h-3" />
+                              Calculate Hash
+                            </button>
+                          ) : (
+                            <span className="text-[11px] text-slate-500 font-mono italic">Not calculated</span>
+                          )}
+                        </div>
+                      )}
                     </td>
 
                     {/* MD5 */}
                     <td className="py-3 px-3">
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between gap-1 group">
-                          <span
-                            className={`font-mono text-[11px] break-all leading-tight select-all ${
-                              isMatch && file.expectedHash?.toLowerCase() === file.md5.toLowerCase()
-                                ? 'text-emerald-400 font-bold'
-                                : 'text-slate-400'
-                            }`}
-                          >
-                            {file.md5}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => handleCopy(file.md5, `${file.id}-md5`)}
-                            className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition opacity-70 group-hover:opacity-100 shrink-0"
-                            title="Copy full MD5 digest"
-                          >
-                            {copiedHashKey === `${file.id}-md5` ? (
-                              <Check className="w-3.5 h-3.5 text-emerald-400" />
-                            ) : (
-                              <Copy className="w-3.5 h-3.5" />
-                            )}
-                          </button>
+                      {isCalculating ? (
+                        <div className="flex items-center gap-1.5 text-cyan-400 font-mono text-[11px] py-1 animate-pulse">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                          <span>Calculating MD5...</span>
                         </div>
-                      </div>
+                      ) : isQueued ? (
+                        <div className="flex items-center gap-1.5 text-amber-400/80 font-mono text-[11px] py-1">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
+                          <span>Queued...</span>
+                        </div>
+                      ) : isError ? (
+                        <span className="text-[11px] text-rose-400 font-mono">Failed</span>
+                      ) : file.md5 ? (
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-1 group">
+                            <span
+                              className={`font-mono text-[11px] break-all leading-tight select-all ${
+                                isMatch && file.expectedHash?.toLowerCase() === file.md5.toLowerCase()
+                                  ? 'text-emerald-400 font-bold'
+                                  : 'text-slate-400'
+                              }`}
+                            >
+                              {file.md5}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(file.md5, `${file.id}-md5`)}
+                              className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition opacity-70 group-hover:opacity-100 shrink-0"
+                              title="Copy full MD5 digest"
+                            >
+                              {copiedHashKey === `${file.id}-md5` ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3.5 h-3.5" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-500 font-mono italic">Not calculated</span>
+                      )}
                     </td>
 
                     {/* Hash Verification Status & Input */}
@@ -320,11 +486,26 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
                             </span>
                           )}
 
-                          {file.verificationStatus === 'unverified' && (
+                          {isCalculating ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-cyan-400 bg-cyan-950/40 border border-cyan-800/50">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                              Hashing in progress
+                            </span>
+                          ) : isQueued ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-400 bg-amber-950/40 border border-amber-800/50">
+                              <Clock className="w-2.5 h-2.5" />
+                              Queued in batch
+                            </span>
+                          ) : isError ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-rose-400 bg-rose-950/40 border border-rose-800/50">
+                              <AlertCircle className="w-2.5 h-2.5" />
+                              Hashing Failed
+                            </span>
+                          ) : file.verificationStatus === 'unverified' ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-slate-500 bg-slate-800/60 border border-slate-700/50">
                               Unverified
                             </span>
-                          )}
+                          ) : null}
                         </div>
 
                         <div className="relative">
