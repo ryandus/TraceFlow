@@ -1,0 +1,6 @@
+{
+  "name": "TraceFlow",
+  "description": "TraceFlow is an Evidence Custody & Hash Manifest Engine compliant with ISO/IEC 27037 with dual-hash chunked computation (SHA-256 & MD5), Chain-of-Custody ledger, local IndexedDB persistence, and verification manifest export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
