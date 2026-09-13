@@ -6,7 +6,7 @@
 
 *Engineered by R. Hanks*
 
-**[Launch Live TraceFlow Application →](https://github.com/ryandus/TraceFlow)**
+**[Launch Live TraceFlow Application →](https://ryandus.github.io/TraceFlow/)**
 
 ---
 
