@@ -108,11 +108,11 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
       }
     }
 
-    // 3. Defer heavy file stream processing and SHA-256/MD5 hashing operations so UI updates instantly
+    // 3. Defer heavy file stream processing and SHA-256/MD5 hashing operations so browser has a 10ms window to paint UI update and hide overlay
     if (droppedFiles.length > 0) {
       setTimeout(() => {
         onFilesSelected(droppedFiles);
-      }, 0);
+      }, 10);
     }
   };
 
