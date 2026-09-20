@@ -36,25 +36,44 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
   isQueueEmpty,
 }) => {
   const [isDragOver, setIsDragOver] = useState(false);
+  const dropOverlayRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dirInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
     setIsDragOver(true);
+    if (dropOverlayRef.current) {
+      dropOverlayRef.current.style.display = 'flex';
+      dropOverlayRef.current.classList.add('active');
+    }
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOver(false);
+    if (dropOverlayRef.current) {
+      dropOverlayRef.current.style.display = 'none';
+      dropOverlayRef.current.classList.remove('active');
+    }
   };
 
   const handleDrop = (e: React.DragEvent) => {
+    // 1. Prevent default behavior so browser intercepts the file instead of opening it directly
     e.preventDefault();
     e.stopPropagation();
+
+    // 2. Execution order: Hide overlay immediately at the start of drop event before processing
     setIsDragOver(false);
+    if (dropOverlayRef.current) {
+      dropOverlayRef.current.style.display = 'none';
+      dropOverlayRef.current.classList.remove('active');
+    }
 
     const droppedFiles: File[] = [];
 
@@ -78,8 +97,11 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
       }
     }
 
+    // 3. Defer local stream processing and SHA-256/MD5 hashing operations so main thread paints hidden overlay
     if (droppedFiles.length > 0) {
-      onFilesSelected(droppedFiles);
+      setTimeout(() => {
+        onFilesSelected(droppedFiles);
+      }, 0);
     }
   };
 
@@ -237,6 +259,24 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
             : 'border-slate-800 hover:border-slate-700 bg-slate-900/60'
         }`}
       >
+        {/* Active Drop Overlay */}
+        <div
+          ref={dropOverlayRef}
+          aria-hidden={!isDragOver}
+          style={{ display: isDragOver ? 'flex' : 'none' }}
+          className={`absolute inset-0 z-20 bg-cyan-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 border-2 border-dashed border-cyan-400 rounded-xl pointer-events-none transition-all duration-150 ${
+            isDragOver ? 'active opacity-100' : 'opacity-0 hidden'
+          }`}
+        >
+          <UploadCloud className="w-12 h-12 text-cyan-400 animate-bounce mb-2" />
+          <h4 className="text-sm font-bold text-slate-100 font-mono">
+            Drop Evidence Files to Ingest & Compute Hashes
+          </h4>
+          <p className="text-xs text-cyan-300 font-mono mt-1">
+            Concurrent SHA-256 + MD5 checksums will be calculated in local memory
+          </p>
+        </div>
+
         <input
           ref={fileInputRef}
           type="file"
