@@ -35,10 +35,20 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
   onCancel,
   isQueueEmpty,
 }) => {
-  const [isDragOver, setIsDragOver] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const dropOverlayRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dirInputRef = useRef<HTMLInputElement>(null);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    if (dropOverlayRef.current) {
+      dropOverlayRef.current.style.display = 'flex';
+      dropOverlayRef.current.classList.add('active');
+    }
+  };
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -46,7 +56,7 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
     if (e.dataTransfer) {
       e.dataTransfer.dropEffect = 'copy';
     }
-    setIsDragOver(true);
+    setIsDragging(true);
     if (dropOverlayRef.current) {
       dropOverlayRef.current.style.display = 'flex';
       dropOverlayRef.current.classList.add('active');
@@ -56,7 +66,8 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragOver(false);
+    // Immediately update state to hide drag overlay
+    setIsDragging(false);
     if (dropOverlayRef.current) {
       dropOverlayRef.current.style.display = 'none';
       dropOverlayRef.current.classList.remove('active');
@@ -64,12 +75,12 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
   };
 
   const handleDrop = (e: React.DragEvent) => {
-    // 1. Prevent default behavior so browser intercepts the file instead of opening it directly
+    // 1. Prevent default behavior so browser doesn't intercept or attempt to open the file
     e.preventDefault();
     e.stopPropagation();
 
-    // 2. Execution order: Hide overlay immediately at the start of drop event before processing
-    setIsDragOver(false);
+    // 2. Immediately update state to hide drag overlay BEFORE any heavy file processing or hashing begins
+    setIsDragging(false);
     if (dropOverlayRef.current) {
       dropOverlayRef.current.style.display = 'none';
       dropOverlayRef.current.classList.remove('active');
@@ -97,7 +108,7 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
       }
     }
 
-    // 3. Defer local stream processing and SHA-256/MD5 hashing operations so main thread paints hidden overlay
+    // 3. Defer heavy file stream processing and SHA-256/MD5 hashing operations so UI updates instantly
     if (droppedFiles.length > 0) {
       setTimeout(() => {
         onFilesSelected(droppedFiles);
@@ -250,11 +261,12 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
 
       {/* Ingestion Dropzone & Selectors */}
       <div
+        onDragEnter={handleDragEnter}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`relative border-2 border-dashed rounded-xl p-6 md:p-8 transition-all duration-200 text-center ${
-          isDragOver
+          isDragging
             ? 'border-cyan-400 bg-cyan-950/20 scale-[1.005]'
             : 'border-slate-800 hover:border-slate-700 bg-slate-900/60'
         }`}
@@ -262,10 +274,10 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
         {/* Active Drop Overlay */}
         <div
           ref={dropOverlayRef}
-          aria-hidden={!isDragOver}
-          style={{ display: isDragOver ? 'flex' : 'none' }}
+          aria-hidden={!isDragging}
+          style={{ display: isDragging ? 'flex' : 'none' }}
           className={`absolute inset-0 z-20 bg-cyan-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 border-2 border-dashed border-cyan-400 rounded-xl pointer-events-none transition-all duration-150 ${
-            isDragOver ? 'active opacity-100' : 'opacity-0 hidden'
+            isDragging ? 'active opacity-100' : 'opacity-0 hidden'
           }`}
         >
           <UploadCloud className="w-12 h-12 text-cyan-400 animate-bounce mb-2" />
