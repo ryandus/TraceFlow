@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { EvidenceFile, HashJobProgress } from '../types/forensic';
 import { formatBytes, formatSpeed, formatETA } from '../services/hasher';
+import HashWorker from './hash.worker?worker';
 
 interface EvidenceFileIngestionProps {
   onFilesSelected: (files: FileList | File[] | EvidenceFile[], isDirectory?: boolean) => void;
@@ -43,9 +44,14 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
 
   // Initialize dedicated local Web Worker for parallel background hashing
   useEffect(() => {
-    const worker = new Worker(new URL('./hash.worker.ts', import.meta.url), {
-      type: 'module',
-    });
+    let worker: Worker;
+    try {
+      worker = new HashWorker();
+    } catch {
+      worker = new Worker(new URL('./hash.worker.ts', import.meta.url), {
+        type: 'module',
+      });
+    }
 
     // Listen for Results: Handle onmessage event from worker to retrieve final hash manifest data
     worker.onmessage = (e: MessageEvent) => {
