@@ -46,26 +46,46 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkInputText, setBulkInputText] = useState('');
   const [isDragOverTable, setIsDragOverTable] = useState(false);
+  const tableOverlayRef = useRef<HTMLDivElement>(null);
   const tableFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleTableDragOver = (e: React.DragEvent) => {
     if (!onFilesSelected) return;
     e.preventDefault();
     e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
     setIsDragOverTable(true);
+    if (tableOverlayRef.current) {
+      tableOverlayRef.current.style.display = 'flex';
+      tableOverlayRef.current.classList.add('active');
+    }
   };
 
   const handleTableDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragOverTable(false);
+    if (tableOverlayRef.current) {
+      tableOverlayRef.current.style.display = 'none';
+      tableOverlayRef.current.classList.remove('active');
+    }
   };
 
   const handleTableDrop = (e: React.DragEvent) => {
     if (!onFilesSelected) return;
+
+    // 1. Prevent default behavior so browser intercepts file instead of opening it directly
     e.preventDefault();
     e.stopPropagation();
+
+    // 2. Execution order: Hide overlay immediately at start of drop event before processing
     setIsDragOverTable(false);
+    if (tableOverlayRef.current) {
+      tableOverlayRef.current.style.display = 'none';
+      tableOverlayRef.current.classList.remove('active');
+    }
 
     const droppedFiles: File[] = [];
     if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
@@ -82,8 +102,12 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
         droppedFiles.push(e.dataTransfer.files[i]);
       }
     }
+
+    // 3. Defer stream processing / hashing so browser has 10ms window to paint UI update and dismiss overlay
     if (droppedFiles.length > 0) {
-      onFilesSelected(droppedFiles);
+      setTimeout(() => {
+        onFilesSelected(droppedFiles);
+      }, 10);
     }
   };
 
@@ -125,17 +149,22 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
       }`}
     >
       {/* Visual drag-over banner */}
-      {isDragOverTable && (
-        <div className="absolute inset-0 z-30 bg-cyan-950/80 backdrop-blur-xs flex flex-col items-center justify-center p-6 border-2 border-dashed border-cyan-400 rounded-xl pointer-events-none animate-in fade-in duration-150">
-          <UploadCloud className="w-12 h-12 text-cyan-400 animate-bounce mb-2" />
-          <h4 className="text-base font-bold text-slate-100 font-mono">
-            Drop Evidence Files to Calculate Hashes
-          </h4>
-          <p className="text-xs text-cyan-300 font-mono mt-1">
-            Immediate dual-stream SHA-256 + MD5 ingestion will start
-          </p>
-        </div>
-      )}
+      <div
+        ref={tableOverlayRef}
+        aria-hidden={!isDragOverTable}
+        style={{ display: isDragOverTable ? 'flex' : 'none' }}
+        className={`absolute inset-0 z-30 bg-cyan-950/90 backdrop-blur-xs flex flex-col items-center justify-center p-6 border-2 border-dashed border-cyan-400 rounded-xl pointer-events-none transition-all duration-150 ${
+          isDragOverTable ? 'active opacity-100' : 'opacity-0 hidden'
+        }`}
+      >
+        <UploadCloud className="w-12 h-12 text-cyan-400 animate-bounce mb-2" />
+        <h4 className="text-base font-bold text-slate-100 font-mono">
+          Drop Evidence Files to Calculate Hashes
+        </h4>
+        <p className="text-xs text-cyan-300 font-mono mt-1">
+          Immediate dual-stream SHA-256 + MD5 ingestion will start
+        </p>
+      </div>
 
       {/* Hidden file input for table fallback */}
       <input
