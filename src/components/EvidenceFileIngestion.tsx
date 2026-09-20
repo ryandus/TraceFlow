@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { 
   UploadCloud, 
   FolderPlus, 
@@ -13,11 +13,11 @@ import {
   AlertTriangle,
   Beaker
 } from 'lucide-react';
-import { HashJobProgress } from '../types/forensic';
+import { EvidenceFile, HashJobProgress } from '../types/forensic';
 import { formatBytes, formatSpeed, formatETA } from '../services/hasher';
 
 interface EvidenceFileIngestionProps {
-  onFilesSelected: (files: FileList | File[], isDirectory?: boolean) => void;
+  onFilesSelected: (files: FileList | File[] | EvidenceFile[], isDirectory?: boolean) => void;
   onLoadSampleData: () => void;
   progress: HashJobProgress;
   onPause: () => void;
@@ -39,6 +39,36 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
   const dropOverlayRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dirInputRef = useRef<HTMLInputElement>(null);
+  const workerRef = useRef<Worker | null>(null);
+
+  // Initialize dedicated local Web Worker for parallel background hashing
+  useEffect(() => {
+    const worker = new Worker(new URL('./hash.worker.ts', import.meta.url), {
+      type: 'module',
+    });
+
+    // Listen for Results: Handle onmessage event from worker to retrieve final hash manifest data
+    worker.onmessage = (e: MessageEvent) => {
+      const { type, manifestData, data, result } = e.data || {};
+      if (type === 'HASH_COMPLETE' || manifestData || data) {
+        const finalManifest: EvidenceFile[] = manifestData || data || (result ? [result] : []);
+        if (finalManifest && finalManifest.length > 0) {
+          onFilesSelected(finalManifest);
+        }
+      }
+    };
+
+    worker.onerror = (err) => {
+      console.error('hash.worker.ts error:', err);
+    };
+
+    workerRef.current = worker;
+
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, [onFilesSelected]);
 
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
@@ -79,7 +109,7 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
     e.preventDefault();
     e.stopPropagation();
 
-    // 2. Immediately update state to hide drag overlay BEFORE any heavy file processing or hashing begins
+    // 2. Immediate UI Update: Immediately set state to hide drag-and-drop overlay
     setIsDragging(false);
     if (dropOverlayRef.current) {
       dropOverlayRef.current.style.display = 'none';
@@ -108,24 +138,48 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
       }
     }
 
-    // 3. Defer heavy file stream processing and SHA-256/MD5 hashing operations so browser has a 10ms window to paint UI update and hide overlay
+    // 3. Use postMessage: Immediately postMessage the file object to Web Worker for parallel, asynchronous processing
     if (droppedFiles.length > 0) {
-      setTimeout(() => {
+      if (workerRef.current) {
+        workerRef.current.postMessage({
+          type: 'PROCESS_FILES',
+          files: droppedFiles,
+          file: droppedFiles[0],
+        });
+      } else {
         onFilesSelected(droppedFiles);
-      }, 10);
+      }
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      onFilesSelected(e.target.files);
+      const files = Array.from(e.target.files);
+      if (workerRef.current) {
+        workerRef.current.postMessage({
+          type: 'PROCESS_FILES',
+          files,
+          file: files[0],
+        });
+      } else {
+        onFilesSelected(e.target.files);
+      }
       e.target.value = ''; // Reset input to allow re-selecting same files
     }
   };
 
   const handleDirInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      onFilesSelected(e.target.files, true);
+      const files = Array.from(e.target.files);
+      if (workerRef.current) {
+        workerRef.current.postMessage({
+          type: 'PROCESS_FILES',
+          files,
+          file: files[0],
+        });
+      } else {
+        onFilesSelected(e.target.files, true);
+      }
       e.target.value = '';
     }
   };
