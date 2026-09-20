@@ -92,6 +92,7 @@ export default function App() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileCacheRef = useRef<Map<string, File>>(new Map());
   const [isWindowDragging, setIsWindowDragging] = useState(false);
+  const windowOverlayRef = useRef<HTMLDivElement>(null);
   const dragCounterRef = useRef(0);
 
   const [progress, setProgress] = useState<HashJobProgress>({
@@ -112,34 +113,58 @@ export default function App() {
   useEffect(() => {
     const handleDragEnter = (e: DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       dragCounterRef.current++;
       if (e.dataTransfer?.types?.includes('Files')) {
         setIsWindowDragging(true);
+        if (windowOverlayRef.current) {
+          windowOverlayRef.current.style.display = 'flex';
+          windowOverlayRef.current.classList.add('active');
+        }
       }
     };
 
     const handleDragLeave = (e: DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       dragCounterRef.current--;
       if (dragCounterRef.current <= 0) {
         dragCounterRef.current = 0;
         setIsWindowDragging(false);
+        if (windowOverlayRef.current) {
+          windowOverlayRef.current.style.display = 'none';
+          windowOverlayRef.current.classList.remove('active');
+        }
       }
     };
 
     const handleDragOver = (e: DragEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       if (e.dataTransfer) {
         e.dataTransfer.dropEffect = 'copy';
       }
     };
 
     const handleDrop = (e: DragEvent) => {
+      // 1. Prevent default behavior so browser intercepts files instead of opening them
       e.preventDefault();
+      e.stopPropagation();
+
+      // 2. Execution order: Hide overlay immediately at the start of drop event
       dragCounterRef.current = 0;
       setIsWindowDragging(false);
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        handleFilesSelected(e.dataTransfer.files);
+      if (windowOverlayRef.current) {
+        windowOverlayRef.current.style.display = 'none';
+        windowOverlayRef.current.classList.remove('active');
+      }
+
+      // 3. Defer local stream processing / SHA-256 / MD5 hashing so browser has 10ms window to paint UI update and dismiss overlay
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        setTimeout(() => {
+          handleFilesSelected(files);
+        }, 10);
       }
     };
 
@@ -297,9 +322,25 @@ export default function App() {
   };
 
   // Process and Hash Selected Files
-  const handleFilesSelected = async (filesList: FileList | File[], isDirectory: boolean = false) => {
-    const fileArray = Array.from(filesList);
+  const handleFilesSelected = async (filesList: FileList | File[] | EvidenceFile[], isDirectory: boolean = false) => {
+    const fileArray = Array.from(filesList as any[]);
     if (fileArray.length === 0) return;
+
+    // Check if items are already computed EvidenceFile manifest data from Web Worker
+    const first = fileArray[0] as any;
+    if (first && typeof first === 'object' && 'sha256' in first && typeof first.sha256 === 'string' && first.sha256.length > 0) {
+      const manifestItems = fileArray as EvidenceFile[];
+      setSession((prev) => {
+        const next = {
+          ...prev,
+          files: [...prev.files, ...manifestItems],
+        };
+        setHasUnsavedChanges(true);
+        handleSaveSession(next);
+        return next;
+      });
+      return;
+    }
 
     // Create initial pending entries
     const newEvidenceItems: EvidenceFile[] = fileArray.map((file) => {
@@ -812,19 +853,25 @@ export default function App() {
   return (
     <div className={`min-h-screen ${isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-100 text-slate-900'} transition-colors duration-200 flex flex-col font-sans relative`}>
       {/* Full-Screen Window Drag-and-Drop Ingestion Overlay */}
-      {isWindowDragging && (
-        <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-8 border-4 border-dashed border-cyan-400 pointer-events-none animate-in fade-in duration-150">
-          <div className="p-4 rounded-2xl bg-cyan-950/80 border border-cyan-500/40 shadow-2xl flex flex-col items-center text-center max-w-md">
-            <UploadCloud className="w-16 h-16 text-cyan-400 animate-bounce mb-3" />
-            <h3 className="text-xl font-bold text-slate-100 font-mono">
-              Drop Evidence Files Anywhere
-            </h3>
-            <p className="text-xs text-cyan-300 font-mono mt-2 leading-relaxed">
-              Release cursor to automatically calculate ISO/IEC 27037 compliant SHA-256 and MD5 cryptographic hashes in TraceFlow.
-            </p>
-          </div>
+      <div
+        id="drag-drop-overlay"
+        ref={windowOverlayRef}
+        aria-hidden={!isWindowDragging}
+        style={{ display: isWindowDragging ? 'flex' : 'none' }}
+        className={`fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-8 border-4 border-dashed border-cyan-400 pointer-events-none transition-opacity duration-150 ${
+          isWindowDragging ? 'active opacity-100' : 'opacity-0 hidden'
+        }`}
+      >
+        <div className="p-4 rounded-2xl bg-cyan-950/80 border border-cyan-500/40 shadow-2xl flex flex-col items-center text-center max-w-md">
+          <UploadCloud className="w-16 h-16 text-cyan-400 animate-bounce mb-3" />
+          <h3 className="text-xl font-bold text-slate-100 font-mono">
+            Drop Evidence Files Anywhere
+          </h3>
+          <p className="text-xs text-cyan-300 font-mono mt-2 leading-relaxed">
+            Release cursor to automatically calculate ISO/IEC 27037 compliant SHA-256 and MD5 cryptographic hashes in TraceFlow.
+          </p>
         </div>
-      )}
+      </div>
 
       {/* Top Navigation Bar */}
       <Navbar
