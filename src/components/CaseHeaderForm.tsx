@@ -133,19 +133,25 @@ export const CaseHeaderForm: React.FC<CaseHeaderFormProps> = ({
 
             <div className="flex items-center gap-2 truncate font-mono text-[11px]">
               <span className="text-slate-400">Case:</span>
-              <strong className="text-cyan-300 font-bold">{metadata.caseNumber || 'UNTITLED'}</strong>
+              <strong className={metadata.caseNumber ? "text-cyan-300 font-bold" : "text-amber-400/90 font-medium"}>
+                {metadata.caseNumber || 'Pending Case Assignment'}
+              </strong>
               <span className="text-slate-600">|</span>
               <span className="text-slate-400">Item:</span>
-              <span className="text-slate-200">{metadata.evidenceItemNumber || 'N/A'}</span>
+              <span className="text-slate-200">{metadata.evidenceItemNumber || 'Pending Item #'}</span>
               <span className="text-slate-600 hidden md:inline">|</span>
               <span className="text-slate-400 hidden md:inline">Examiner:</span>
-              <span className="text-slate-200 hidden md:inline">{metadata.examinerName} ({metadata.examinerBadgeId || 'ID'})</span>
+              <span className="text-slate-200 hidden md:inline">
+                {metadata.examinerName || 'Pending Examiner Assignment'} {metadata.examinerBadgeId ? `(${metadata.examinerBadgeId})` : ''}
+              </span>
               <span className="text-slate-600 hidden lg:inline">|</span>
               <span className="text-slate-400 hidden lg:inline">Agency:</span>
-              <span className="text-slate-300 hidden lg:inline truncate max-w-xs">{metadata.agencyOrganization}</span>
+              <span className="text-slate-300 hidden lg:inline truncate max-w-xs">
+                {metadata.agencyOrganization || 'Pending Agency Assignment'}
+              </span>
               <span className="text-slate-600 hidden xl:inline">|</span>
               <span className="text-slate-400 hidden xl:inline">Write-Block:</span>
-              <span className="text-emerald-400 hidden xl:inline font-sans truncate">{metadata.writeBlockerUsed}</span>
+              <span className="text-emerald-400 hidden xl:inline font-sans truncate">{metadata.writeBlockerUsed || 'None / Not Verified'}</span>
             </div>
           </div>
 

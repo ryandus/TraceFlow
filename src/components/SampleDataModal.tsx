@@ -18,14 +18,16 @@ interface SampleDataModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClearSampleData: () => void;
+  onCleanSlate?: () => void;
   metadata: CaseMetadata;
-  onInitializeCase?: (intakeValues: Partial<CaseMetadata>, clearFiles: boolean) => void;
+  onInitializeCase?: (intakeValues: Partial<CaseMetadata>, retainFiles: boolean) => void;
 }
 
 export const SampleDataModal: React.FC<SampleDataModalProps> = ({
   isOpen,
   onClose,
   onClearSampleData,
+  onCleanSlate,
   metadata,
   onInitializeCase,
 }) => {
@@ -60,7 +62,7 @@ export const SampleDataModal: React.FC<SampleDataModalProps> = ({
     };
 
     if (onInitializeCase) {
-      onInitializeCase(intakeValues, !retainSampleFiles);
+      onInitializeCase(intakeValues, retainSampleFiles);
     } else {
       if (!retainSampleFiles) {
         onClearSampleData();
@@ -238,10 +240,17 @@ export const SampleDataModal: React.FC<SampleDataModalProps> = ({
             <div className="flex items-center gap-2.5">
               <button
                 type="button"
-                onClick={onClose}
-                className="px-3.5 py-2 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition"
+                id="btn-skip-clean-slate"
+                onClick={() => {
+                  if (onCleanSlate) {
+                    onCleanSlate();
+                  } else {
+                    onClose();
+                  }
+                }}
+                className="px-3.5 py-2 rounded-lg text-xs font-medium text-slate-300 hover:text-rose-300 hover:bg-rose-500/10 border border-slate-700/80 transition"
               >
-                Skip
+                Skip / Clean Slate
               </button>
 
               <button

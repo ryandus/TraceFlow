@@ -73,9 +73,9 @@ export const Navbar: React.FC<NavbarProps> = ({
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-400 font-mono truncate">
-              <span>{caseNumber || 'UNTITLED CASE'}</span>
+              <span>{caseNumber || 'Pending Case Assignment'}</span>
               <span>•</span>
-              <span className="text-cyan-400 font-medium">{evidenceItemNumber || 'ITEM-001'}</span>
+              <span className="text-cyan-400 font-medium">{evidenceItemNumber || 'Pending Item #'}</span>
             </div>
           </div>
         </div>

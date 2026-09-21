@@ -22,6 +22,13 @@ export function useChainOfCustodyAutomation({
 }: UseChainOfCustodyAutomationProps) {
   const hasTriggeredRef = useRef<boolean>(false);
 
+  // Reset trigger state when ledger is cleared (e.g. via purgeSampleData)
+  useEffect(() => {
+    if (custodyLedger.length === 0) {
+      hasTriggeredRef.current = false;
+    }
+  }, [custodyLedger.length]);
+
   useEffect(() => {
     if (hasTriggeredRef.current) return;
 

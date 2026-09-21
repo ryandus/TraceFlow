@@ -782,34 +782,97 @@ export default function App() {
     }
   };
 
+  // Default "Pending" placeholders for Clean Slate
+  const PENDING_CASE_METADATA: CaseMetadata = {
+    caseNumber: 'Pending Case Assignment',
+    evidenceItemNumber: 'Pending Item #',
+    examinerName: 'Pending Examiner Assignment',
+    examinerBadgeId: 'Pending ID',
+    agencyOrganization: 'Pending Agency Assignment',
+    mediaType: 'Pending Verification',
+    sourceSerialNumber: 'Pending Serial #',
+    sourceAcquisitionMethod: 'Physical (Bit-stream Image / Raw dd)',
+    collectionDateTime: new Date().toISOString().slice(0, 16),
+    collectionTimeZone: 'UTC',
+    locationFound: 'Pending Location',
+    writeBlockerUsed: 'None / Not Verified',
+    notes: '',
+  };
+
+  /**
+   * purgeSampleData()
+   * Forcefully clears all demonstration state:
+   * - Empties the files array (emptying the <tbody> of Evidence Files table)
+   * - Clears fileCacheRef and in-flight worker jobs
+   * - Removes CoC Sample Entry #1 from the custody ledger
+   * - Resets all top-level UI counter badges ("0 items", "0 Verified", "0 Mismatches", "0 B")
+   * - If customMetadata is provided (e.g. from Initialize with sample files unchecked),
+   *   applies those values; otherwise resets the LOCKED HEADER to default "Pending" placeholders
+   * - Collapses the header into the locked summary ribbon pinned to the top of the viewport
+   */
+  const purgeSampleData = useCallback((customMetadata?: Partial<CaseMetadata>) => {
+    // 1. Clear memory caches and streaming state
+    fileCacheRef.current.clear();
+    setProgress({
+      currentFileIndex: 0,
+      totalFiles: 0,
+      currentFileName: '',
+      currentFilePercent: 0,
+      totalPercent: 0,
+      bytesProcessed: 0,
+      totalBytes: 0,
+      speedBytesPerSec: 0,
+      etaSeconds: 0,
+      isHashing: false,
+      isPaused: false,
+    });
+
+    // 2. Clear state arrays & reset counter badges to zero
+    setSession((prev) => {
+      const targetMetadata: CaseMetadata = customMetadata
+        ? { ...prev.metadata, ...customMetadata }
+        : { ...PENDING_CASE_METADATA };
+
+      const cleanSession: ManifestSession = {
+        ...prev,
+        metadata: targetMetadata,
+        files: [], // completely empties table tbody
+        custodyLedger: [], // removes CoC Sample Entry #1
+        summary: {
+          totalFiles: 0,
+          totalSizeBytes: 0,
+          verifiedFiles: 0,
+          flaggedMismatches: 0,
+        },
+        lastSavedAt: new Date().toISOString(),
+      };
+
+      handleSaveSession(cleanSession);
+      return cleanSession;
+    });
+
+    // 3. Lock header with pending placeholders or custom metadata
+    setIsHeaderCollapsed(true);
+    setIsSampleDataModalOpen(false);
+  }, [handleSaveSession]);
+
   // Clear Sample Data (from SampleDataModal)
   const handleClearSampleData = () => {
-    setSession((prev) => {
-      const updated: ManifestSession = {
-        ...prev,
-        files: [],
-        custodyLedger: prev.custodyLedger.filter((e) => !e.isExample),
-      };
-      handleSaveSession(updated);
-      return updated;
-    });
+    purgeSampleData();
   };
 
   // State Propagation & Header Collapsing: Initialize Case Context from Intake Modal
-  const handleInitializeCaseContext = (intakeValues: Partial<CaseMetadata>, clearFiles: boolean) => {
+  const handleInitializeCaseContext = (intakeValues: Partial<CaseMetadata>, retainFiles: boolean) => {
+    if (!retainFiles) {
+      // Wire purgeSampleData to execute immediately when "Include sample container files" is unchecked
+      purgeSampleData(intakeValues);
+      return;
+    }
+
     setSession((prev) => {
       const updatedMetadata: CaseMetadata = {
         ...prev.metadata,
         ...intakeValues,
-      };
-
-      const updatedFiles = clearFiles ? [] : prev.files;
-      const updatedSummary = {
-        ...prev.summary,
-        totalFiles: updatedFiles.length,
-        totalSizeBytes: updatedFiles.reduce((acc, f) => acc + (f.sizeBytes || 0), 0),
-        verifiedFiles: updatedFiles.filter((f) => f.verificationStatus === 'match').length,
-        flaggedMismatches: updatedFiles.filter((f) => f.verificationStatus === 'mismatch').length,
       };
 
       // Propagate examiner credentials into CoC entries
@@ -832,8 +895,7 @@ export default function App() {
       const nextSession: ManifestSession = {
         ...prev,
         metadata: updatedMetadata,
-        files: updatedFiles,
-        summary: updatedSummary,
+        files: prev.files,
         custodyLedger: updatedCustodyLedger,
         lastSavedAt: new Date().toISOString(),
       };
@@ -1137,7 +1199,8 @@ export default function App() {
       <SampleDataModal
         isOpen={isSampleDataModalOpen}
         onClose={() => setIsSampleDataModalOpen(false)}
-        onClearSampleData={handleClearSampleData}
+        onClearSampleData={() => purgeSampleData()}
+        onCleanSlate={() => purgeSampleData()}
         metadata={session.metadata}
         onInitializeCase={handleInitializeCaseContext}
       />
