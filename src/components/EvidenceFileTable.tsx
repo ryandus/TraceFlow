@@ -18,11 +18,12 @@ import {
   UploadCloud,
   FilePlus2
 } from 'lucide-react';
-import { EvidenceFile, HashVerificationStatus } from '../types/forensic';
-import { formatBytes } from '../services/hasher';
+import { EvidenceFile, HashVerificationStatus, HashJobProgress } from '../types/forensic';
+import { formatBytes, formatSpeed, formatETA } from '../services/hasher';
 
 interface EvidenceFileTableProps {
   files: EvidenceFile[];
+  progress?: HashJobProgress;
   onUpdateExpectedHash: (fileId: string, expectedHash: string) => void;
   onRemoveFile: (fileId: string) => void;
   onClearFiles: () => void;
@@ -33,6 +34,7 @@ interface EvidenceFileTableProps {
 
 export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
   files,
+  progress,
   onUpdateExpectedHash,
   onRemoveFile,
   onClearFiles,
@@ -380,9 +382,32 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
                     {/* SHA-256 */}
                     <td className="py-3 px-3">
                       {isCalculating ? (
-                        <div className="flex items-center gap-1.5 text-cyan-400 font-mono text-[11px] py-1 animate-pulse">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                          <span>Calculating SHA-256...</span>
+                        <div className="space-y-1.5 py-1 min-w-[210px]">
+                          <div className="flex items-center justify-between text-[11px] font-mono">
+                            <span className="flex items-center gap-1.5 text-cyan-400 font-semibold">
+                              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0 text-cyan-400" />
+                              SHA-256: {file.hashProgressPercent || progress?.currentFilePercent || 0}%
+                            </span>
+                            <span className="text-[10.5px] font-mono text-cyan-300 font-bold">
+                              {formatSpeed(file.speedBytesPerSec || progress?.speedBytesPerSec || 0)}
+                            </span>
+                          </div>
+
+                          {/* Dynamic Progress Bar */}
+                          <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700/60">
+                            <div 
+                              className="h-full bg-gradient-to-r from-cyan-500 via-emerald-400 to-cyan-400 rounded-full transition-all duration-150"
+                              style={{ width: `${Math.max(4, file.hashProgressPercent || progress?.currentFilePercent || 0)}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                            <span>2MB Stream</span>
+                            <span className="text-emerald-400 flex items-center gap-1 font-semibold">
+                              <Clock className="w-3 h-3 text-emerald-400" />
+                              ETA: {formatETA(file.etaSeconds || progress?.etaSeconds || 0)}
+                            </span>
+                          </div>
                         </div>
                       ) : isQueued ? (
                         <div className="flex items-center gap-1.5 text-amber-400/80 font-mono text-[11px] py-1">
@@ -455,9 +480,14 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
                     {/* MD5 */}
                     <td className="py-3 px-3">
                       {isCalculating ? (
-                        <div className="flex items-center gap-1.5 text-cyan-400 font-mono text-[11px] py-1 animate-pulse">
-                          <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-                          <span>Calculating MD5...</span>
+                        <div className="space-y-1 py-1 font-mono text-[11px] text-cyan-400/90">
+                          <div className="flex items-center gap-1.5">
+                            <Loader2 className="w-3 h-3 animate-spin shrink-0 text-cyan-400" />
+                            <span>Parallel Digest...</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 block font-mono">
+                            {formatSpeed(file.speedBytesPerSec || progress?.speedBytesPerSec || 0)}
+                          </span>
                         </div>
                       ) : isQueued ? (
                         <div className="flex items-center gap-1.5 text-amber-400/80 font-mono text-[11px] py-1">
@@ -516,9 +546,9 @@ export const EvidenceFileTable: React.FC<EvidenceFileTableProps> = ({
                           )}
 
                           {isCalculating ? (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-cyan-400 bg-cyan-950/40 border border-cyan-800/50">
-                              <Loader2 className="w-2.5 h-2.5 animate-spin" />
-                              Hashing in progress
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-medium text-cyan-300 bg-cyan-950/60 border border-cyan-800/60">
+                              <Loader2 className="w-2.5 h-2.5 animate-spin text-cyan-400" />
+                              {file.hashProgressPercent || progress?.currentFilePercent || 0}% Streamed
                             </span>
                           ) : isQueued ? (
                             <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium text-amber-400 bg-amber-950/40 border border-amber-800/50">

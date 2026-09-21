@@ -10,7 +10,6 @@ import {
   ManifestSession, 
   HashJobProgress 
 } from './types/forensic';
-import { ForensicHashEngine } from './services/hasher';
 import { storageService } from './services/storage';
 import { Navbar } from './components/Navbar';
 import { CaseHeaderForm } from './components/CaseHeaderForm';
@@ -19,8 +18,75 @@ import { EvidenceFileTable } from './components/EvidenceFileTable';
 import { ChainOfCustodyLedger } from './components/ChainOfCustodyLedger';
 import { SessionManagerModal } from './components/SessionManagerModal';
 import { ExportModal } from './components/ExportModal';
+import { ExportWarningModal } from './components/ExportWarningModal';
+import { SampleDataModal } from './components/SampleDataModal';
 import { PrintableManifest } from './components/PrintableManifest';
-import { generateManifestJSON, downloadFile } from './services/exporter';
+import { downloadFile } from './services/exporter';
+import { useChainOfCustodyAutomation } from './hooks/useChainOfCustodyAutomation';
+import { generateManifestHashQR, ManifestAuditQRResult } from './services/qrAudit';
+
+export const DEFAULT_SAMPLE_FILES: EvidenceFile[] = [
+  {
+    id: 'sample-disk-001',
+    name: 'WS04_PhysicalDrive0.001',
+    relativePath: 'PhysicalDrive0/WS04_PhysicalDrive0.001',
+    sizeBytes: 2048576000, // ~1.9 GB chunk
+    mimeType: 'application/octet-stream (Raw Disk Image)',
+    lastModified: Date.now() - 3600000 * 24,
+    sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+    md5: '098f6bcd4621d373cade4e832627b4f6',
+    hashingStatus: 'completed',
+    hashProgressPercent: 100,
+    expectedHash: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
+    verificationStatus: 'match',
+    notes: 'EnCase / FTK raw image chunk verified against acquisition log.',
+  },
+  {
+    id: 'sample-mem-raw',
+    name: 'win11_x64_volatile_memory.raw',
+    relativePath: 'Live_Triage/win11_x64_volatile_memory.raw',
+    sizeBytes: 16777216000, // 16 GB RAM capture
+    mimeType: 'application/x-raw-memory',
+    lastModified: Date.now() - 3600000 * 20,
+    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    hashingStatus: 'completed',
+    hashProgressPercent: 100,
+    expectedHash: 'd41d8cd98f00b204e9800998ecf8427e',
+    verificationStatus: 'match',
+    notes: 'Captured via WinPmem live triage memory acquisition script.',
+  },
+  {
+    id: 'sample-mismatch-log',
+    name: 'suspicious_powershell_history.txt',
+    relativePath: 'Users/Administrator/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt',
+    sizeBytes: 45281,
+    mimeType: 'text/plain',
+    lastModified: Date.now() - 3600000 * 12,
+    sha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
+    md5: '1bc29b36f623ba82aaf6724fd3b16718',
+    hashingStatus: 'completed',
+    hashProgressPercent: 100,
+    expectedHash: '2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae', // intentionally mismatched!
+    verificationStatus: 'mismatch',
+    notes: 'INTEGRITY ALERT: File hash does not match pre-triage checksum ledger!',
+  },
+  {
+    id: 'sample-zero-byte',
+    name: 'canary_sentinel_empty.flag',
+    relativePath: 'canary_sentinel_empty.flag',
+    sizeBytes: 0,
+    mimeType: 'application/octet-stream',
+    lastModified: Date.now(),
+    sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    md5: 'd41d8cd98f00b204e9800998ecf8427e',
+    hashingStatus: 'completed',
+    hashProgressPercent: 100,
+    expectedHash: '',
+    verificationStatus: 'unverified',
+    notes: '0-byte sentinel file test per ISO/IEC 27037 standard verification.',
+  },
+];
 
 const createDefaultSession = (): ManifestSession => {
   const now = new Date();
@@ -47,7 +113,7 @@ const createDefaultSession = (): ManifestSession => {
       writeBlockerUsed: 'Hardware Write Blocker (Tableau / WiebeTech)',
       notes: 'Acquired on-site following security breach notification. Drive unseated and attached to Tableau T8u.',
     },
-    files: [],
+    files: DEFAULT_SAMPLE_FILES,
     custodyLedger: [
       {
         id: `coc-${Date.now()}`,
@@ -67,10 +133,10 @@ const createDefaultSession = (): ManifestSession => {
       },
     ],
     summary: {
-      totalFiles: 0,
-      totalSizeBytes: 0,
-      verifiedFiles: 0,
-      flaggedMismatches: 0,
+      totalFiles: 4,
+      totalSizeBytes: 18825837281,
+      verifiedFiles: 2,
+      flaggedMismatches: 1,
     },
   };
 };
@@ -86,10 +152,13 @@ export default function App() {
   // Modals
   const [isSessionManagerOpen, setIsSessionManagerOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isExportWarningModalOpen, setIsExportWarningModalOpen] = useState(false);
+  const [isSampleDataModalOpen, setIsSampleDataModalOpen] = useState(true);
+  const [pendingExportAction, setPendingExportAction] = useState<'print' | 'export'>('print');
+  const [qrAuditData, setQrAuditData] = useState<ManifestAuditQRResult | null>(null);
 
-  // Hashing Progress & Engine
-  const hashEngineRef = useRef<ForensicHashEngine>(new ForensicHashEngine());
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Dedicated Web Worker & Stream Reference
+  const workerRef = useRef<Worker | null>(null);
   const fileCacheRef = useRef<Map<string, File>>(new Map());
   const [isWindowDragging, setIsWindowDragging] = useState(false);
   const windowOverlayRef = useRef<HTMLDivElement>(null);
@@ -108,6 +177,177 @@ export default function App() {
     isHashing: false,
     isPaused: false,
   });
+
+  // Save Session to IndexedDB
+  const handleSaveSession = useCallback(async (currentSession: ManifestSession) => {
+    setIsSaving(true);
+    try {
+      await storageService.saveSession(currentSession);
+      setLastSavedAt(new Date().toISOString());
+      setHasUnsavedChanges(false);
+      const updatedList = await storageService.getAllSessions();
+      setAllSessions(updatedList);
+    } catch (err) {
+      console.error('Failed to auto-save session:', err);
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
+  // CoC Automation: Automatically generates Entry #1 upon first successful file hash completion
+  useChainOfCustodyAutomation({
+    files: session.files,
+    metadata: session.metadata,
+    custodyLedger: session.custodyLedger,
+    onAppendEntry: (newEntry) => {
+      setSession((prev) => {
+        // Replace example entry if present, or prepend as sequence #1
+        const realEntries = prev.custodyLedger.filter((e) => !e.isExample);
+        const updatedLedger = [newEntry, ...realEntries].map((e, idx) => ({
+          ...e,
+          sequenceNumber: idx + 1,
+        }));
+        const nextSession = {
+          ...prev,
+          custodyLedger: updatedLedger,
+        };
+        handleSaveSession(nextSession);
+        return nextSession;
+      });
+    },
+  });
+
+  // Initialize Dedicated Background Web Worker for multi-terabyte stream hashing
+  useEffect(() => {
+    let worker: Worker;
+    try {
+      worker = new Worker(new URL('./components/hash.worker.ts', import.meta.url), { type: 'module' });
+    } catch {
+      worker = new Worker(new URL('/hash.worker.ts', import.meta.url), { type: 'module' });
+    }
+
+    worker.onmessage = (e: MessageEvent) => {
+      const {
+        type,
+        fileId,
+        currentFilePercent,
+        speedBytesPerSec,
+        etaSeconds,
+        totalPercent,
+        bytesProcessed,
+        totalBytes,
+        currentFileName,
+        fileIndex,
+        totalFiles,
+        result,
+        errorMessage,
+      } = e.data || {};
+
+      if (type === 'CHUNK_PROGRESS') {
+        setProgress((prev) => ({
+          ...prev,
+          currentFileIndex: fileIndex !== undefined ? fileIndex : prev.currentFileIndex,
+          totalFiles: totalFiles !== undefined ? totalFiles : prev.totalFiles,
+          currentFileName: currentFileName || prev.currentFileName,
+          currentFilePercent: currentFilePercent !== undefined ? currentFilePercent : prev.currentFilePercent,
+          totalPercent: totalPercent !== undefined ? totalPercent : prev.totalPercent,
+          bytesProcessed: bytesProcessed !== undefined ? bytesProcessed : prev.bytesProcessed,
+          totalBytes: totalBytes !== undefined ? totalBytes : prev.totalBytes,
+          speedBytesPerSec: speedBytesPerSec !== undefined ? speedBytesPerSec : prev.speedBytesPerSec,
+          etaSeconds: etaSeconds !== undefined ? etaSeconds : prev.etaSeconds,
+          isHashing: true,
+        }));
+
+        if (fileId) {
+          setSession((prev) => ({
+            ...prev,
+            files: prev.files.map((f) =>
+              f.id === fileId
+                ? {
+                    ...f,
+                    hashingStatus: 'hashing',
+                    hashProgressPercent: currentFilePercent,
+                    speedBytesPerSec,
+                    etaSeconds,
+                  }
+                : f
+            ),
+          }));
+        }
+      } else if (type === 'FILE_COMPLETE') {
+        if (fileId && result) {
+          setSession((prev) => {
+            const updatedFiles = prev.files.map((f) => {
+              if (f.id === fileId) {
+                const cleanExpected = (f.expectedHash || '').trim().toLowerCase();
+                let verificationStatus = f.verificationStatus;
+                if (cleanExpected.length > 0) {
+                  const matchesSha = result.sha256 && result.sha256.toLowerCase() === cleanExpected;
+                  const matchesMd5 = result.md5 && result.md5.toLowerCase() === cleanExpected;
+                  verificationStatus = matchesSha || matchesMd5 ? 'match' : 'mismatch';
+                }
+                return {
+                  ...f,
+                  sha256: result.sha256,
+                  md5: result.md5,
+                  hashingStatus: 'completed' as const,
+                  hashProgressPercent: 100,
+                  speedBytesPerSec: 0,
+                  etaSeconds: 0,
+                  verificationStatus,
+                  errorMessage: undefined,
+                };
+              }
+              return f;
+            });
+            const next = { ...prev, files: updatedFiles };
+            handleSaveSession(next);
+            return next;
+          });
+        }
+      } else if (type === 'FILE_ERROR') {
+        if (fileId) {
+          setSession((prev) => ({
+            ...prev,
+            files: prev.files.map((f) =>
+              f.id === fileId
+                ? {
+                    ...f,
+                    hashingStatus: 'error',
+                    hashProgressPercent: 0,
+                    speedBytesPerSec: 0,
+                    etaSeconds: 0,
+                    errorMessage: errorMessage || 'Hashing failed',
+                  }
+                : f
+            ),
+          }));
+        }
+      } else if (type === 'HASH_COMPLETE') {
+        setProgress((prev) => ({
+          ...prev,
+          isHashing: false,
+          isPaused: false,
+          currentFilePercent: 100,
+          totalPercent: 100,
+          speedBytesPerSec: 0,
+          etaSeconds: 0,
+        }));
+      }
+    };
+
+    worker.onerror = (err) => {
+      console.error('Dedicated hash worker error:', err);
+      setProgress((prev) => ({ ...prev, isHashing: false }));
+    };
+
+    workerRef.current = worker;
+
+    return () => {
+      worker.terminate();
+      workerRef.current = null;
+    };
+  }, [handleSaveSession]);
 
   // Global window drag-and-drop listener to allow dragging files from anywhere on desktop
   useEffect(() => {
@@ -194,14 +434,15 @@ export default function App() {
           if (activeSession) {
             setSession(activeSession);
             setLastSavedAt(activeSession.lastSavedAt);
+            if (!activeSession.files.some(f => f.id.startsWith('sample-'))) {
+              setIsSampleDataModalOpen(false);
+            }
           } else {
-            // Save the default initial session
             await storageService.saveSession(session);
             setLastSavedAt(session.lastSavedAt);
             setAllSessions([session, ...storedSessions]);
           }
         } else {
-          // Initialize first session into storage
           await storageService.saveSession(session);
           setLastSavedAt(session.lastSavedAt);
           setAllSessions([session]);
@@ -213,36 +454,7 @@ export default function App() {
     initStorage();
   }, []);
 
-  // Save Session to IndexedDB
-  const handleSaveSession = useCallback(async (currentSession: ManifestSession) => {
-    setIsSaving(true);
-    try {
-      await storageService.saveSession(currentSession);
-      setLastSavedAt(new Date().toISOString());
-      setHasUnsavedChanges(false);
-
-      // Refresh stored sessions list
-      const updated = await storageService.getAllSessions();
-      setAllSessions(updated);
-    } catch (err) {
-      console.error('Auto-save to IndexedDB failed:', err);
-    } finally {
-      setIsSaving(false);
-    }
-  }, []);
-
-  // 30-second Auto-save Interval
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (hasUnsavedChanges) {
-        handleSaveSession(session);
-      }
-    }, 30000);
-
-    return () => clearInterval(interval);
-  }, [hasUnsavedChanges, session, handleSaveSession]);
-
-  // Update Case Metadata
+  // Metadata Updates from CaseHeaderForm
   const handleMetadataChange = (updated: Partial<CaseMetadata>) => {
     setSession((prev) => {
       const next = {
@@ -321,12 +533,12 @@ export default function App() {
     }
   };
 
-  // Process and Hash Selected Files
-  const handleFilesSelected = async (filesList: FileList | File[] | EvidenceFile[], isDirectory: boolean = false) => {
+  // Process and Hash Selected Files via Web Worker
+  const handleFilesSelected = (filesList: FileList | File[] | EvidenceFile[], isDirectory: boolean = false) => {
     const fileArray = Array.from(filesList as any[]);
     if (fileArray.length === 0) return;
 
-    // Check if items are already computed EvidenceFile manifest data from Web Worker
+    // If already computed items
     const first = fileArray[0] as any;
     if (first && typeof first === 'object' && 'sha256' in first && typeof first.sha256 === 'string' && first.sha256.length > 0) {
       const manifestItems = fileArray as EvidenceFile[];
@@ -342,11 +554,13 @@ export default function App() {
       return;
     }
 
+    const rawFiles: File[] = fileArray.filter((f) => f instanceof File);
+    if (rawFiles.length === 0) return;
+
     // Create initial pending entries
-    const newEvidenceItems: EvidenceFile[] = fileArray.map((file) => {
+    const newEvidenceItems: EvidenceFile[] = rawFiles.map((file) => {
       const relPath = file.webkitRelativePath || file.name;
       const itemId = `file-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-      // Cache file object for recalculation and verification
       fileCacheRef.current.set(itemId, file);
 
       return {
@@ -360,6 +574,8 @@ export default function App() {
         md5: '',
         hashingStatus: 'pending',
         hashProgressPercent: 0,
+        speedBytesPerSec: 0,
+        etaSeconds: 0,
         verificationStatus: 'unverified',
       };
     });
@@ -374,19 +590,12 @@ export default function App() {
       return next;
     });
 
-    // Begin batch chunked hashing
-    const totalBytes = fileArray.reduce((acc, f) => acc + f.size, 0);
-    let totalBytesProcessed = 0;
-    const startTime = Date.now();
-
-    abortControllerRef.current = new AbortController();
-    const engine = hashEngineRef.current;
-    engine.reset(); // Clear any previous pause or cancelled state
-
+    // Setup global progress state
+    const totalBytes = rawFiles.reduce((acc, f) => acc + f.size, 0);
     setProgress({
       currentFileIndex: 0,
-      totalFiles: fileArray.length,
-      currentFileName: fileArray[0].name,
+      totalFiles: rawFiles.length,
+      currentFileName: rawFiles[0].name,
       currentFilePercent: 0,
       totalPercent: 0,
       bytesProcessed: 0,
@@ -397,116 +606,25 @@ export default function App() {
       isPaused: false,
     });
 
-    for (let i = 0; i < fileArray.length; i++) {
-      if (abortControllerRef.current?.signal.aborted) {
-        break;
-      }
-
-      const file = fileArray[i];
-      const evidenceItem = newEvidenceItems[i];
-
-      // Mark this individual file as actively hashing
-      setSession((prev) => ({
-        ...prev,
-        files: prev.files.map((f) =>
-          f.id === evidenceItem.id
-            ? { ...f, hashingStatus: 'hashing', hashProgressPercent: 0 }
-            : f
-        ),
-      }));
-
-      setProgress((prev) => ({
-        ...prev,
-        currentFileIndex: i,
-        currentFileName: file.name,
-        currentFilePercent: 0,
-      }));
-
-      try {
-        const hashResult = await engine.hashFile(
-          file,
-          (processedInFile, percent) => {
-            const currentTotalProcessed = totalBytesProcessed + processedInFile;
-            const elapsedSec = Math.max(0.1, (Date.now() - startTime) / 1000);
-            const speed = currentTotalProcessed / elapsedSec;
-            const remainingBytes = Math.max(0, totalBytes - currentTotalProcessed);
-            const eta = speed > 0 ? remainingBytes / speed : 0;
-            const overallPercent = totalBytes > 0 ? Math.min(100, Math.round((currentTotalProcessed / totalBytes) * 100)) : 100;
-
-            setProgress((prev) => ({
-              ...prev,
-              currentFilePercent: percent,
-              totalPercent: overallPercent,
-              bytesProcessed: currentTotalProcessed,
-              speedBytesPerSec: speed,
-              etaSeconds: eta,
-            }));
-          },
-          abortControllerRef.current?.signal
-        );
-
-        totalBytesProcessed += file.size;
-
-        // Update file entry with hashes
-        setSession((prev) => {
-          const updatedFiles = prev.files.map((f) => {
-            if (f.id === evidenceItem.id) {
-              return {
-                ...f,
-                sha256: hashResult.sha256,
-                md5: hashResult.md5,
-                hashingStatus: 'completed' as const,
-                hashProgressPercent: 100,
-                errorMessage: undefined,
-              };
-            }
-            return f;
-          });
-          return { ...prev, files: updatedFiles };
-        });
-      } catch (err: unknown) {
-        if (err instanceof DOMException && err.name === 'AbortError') {
-          console.log('Hashing cancelled by user.');
-          break;
-        }
-        console.error('File hashing failed:', err);
-        setSession((prev) => {
-          const updatedFiles = prev.files.map((f) => {
-            if (f.id === evidenceItem.id) {
-              return {
-                ...f,
-                hashingStatus: 'error' as const,
-                errorMessage: err instanceof Error ? err.message : 'Unknown hashing error',
-              };
-            }
-            return f;
-          });
-          return { ...prev, files: updatedFiles };
-        });
-      }
-    }
-
-    setProgress((prev) => ({
-      ...prev,
-      isHashing: false,
-      isPaused: false,
-      currentFilePercent: 100,
-      totalPercent: 100,
-    }));
-
-    // Auto-save after batch completion cleanly
-    setSession((latest) => {
-      setTimeout(() => handleSaveSession(latest), 0);
-      return latest;
+    const fileIdMap: Record<string, string> = {};
+    newEvidenceItems.forEach((item, idx) => {
+      fileIdMap[rawFiles[idx].name] = item.id;
     });
+
+    // Dispatch to Web Worker
+    if (workerRef.current) {
+      workerRef.current.postMessage({
+        type: 'PROCESS_FILES',
+        files: rawFiles,
+        fileIdMap,
+      });
+    }
   };
 
   // Recalculate Hashes for a specific file
-  const handleRecalculateFile = async (fileId: string) => {
+  const handleRecalculateFile = (fileId: string) => {
     const cachedFile = fileCacheRef.current.get(fileId);
-    if (cachedFile) {
-      const engine = hashEngineRef.current;
-      engine.reset();
+    if (cachedFile && workerRef.current) {
       setSession((prev) => ({
         ...prev,
         files: prev.files.map((f) =>
@@ -516,45 +634,23 @@ export default function App() {
         ),
       }));
 
-      try {
-        const hashResult = await engine.hashFile(cachedFile);
-        setSession((prev) => {
-          const updatedFiles = prev.files.map((f) => {
-            if (f.id === fileId) {
-              return {
-                ...f,
-                sha256: hashResult.sha256,
-                md5: hashResult.md5,
-                hashingStatus: 'completed' as const,
-                hashProgressPercent: 100,
-                errorMessage: undefined,
-              };
-            }
-            return f;
-          });
-          const next = { ...prev, files: updatedFiles };
-          setTimeout(() => handleSaveSession(next), 0);
-          return next;
-        });
-      } catch (err: unknown) {
-        setSession((prev) => ({
-          ...prev,
-          files: prev.files.map((f) =>
-            f.id === fileId
-              ? {
-                  ...f,
-                  hashingStatus: 'error' as const,
-                  errorMessage: err instanceof Error ? err.message : 'Calculation error',
-                }
-              : f
-          ),
-        }));
-      }
+      setProgress((prev) => ({
+        ...prev,
+        currentFileIndex: 0,
+        totalFiles: 1,
+        currentFileName: cachedFile.name,
+        isHashing: true,
+      }));
+
+      workerRef.current.postMessage({
+        type: 'PROCESS_FILES',
+        files: [cachedFile],
+        fileIdMap: { [cachedFile.name]: fileId },
+      });
     } else {
-      // Prompt user to select file from disk
       const input = document.createElement('input');
       input.type = 'file';
-      input.onchange = async (e) => {
+      input.onchange = (e) => {
         const files = (e.target as HTMLInputElement).files;
         if (files && files.length > 0) {
           const selectedFile = files[0];
@@ -568,20 +664,17 @@ export default function App() {
 
   // Pause / Resume / Cancel Controls
   const handlePauseHashing = () => {
-    hashEngineRef.current.pause();
+    workerRef.current?.postMessage({ type: 'PAUSE' });
     setProgress((p) => ({ ...p, isPaused: true }));
   };
 
   const handleResumeHashing = () => {
-    hashEngineRef.current.resume();
+    workerRef.current?.postMessage({ type: 'RESUME' });
     setProgress((p) => ({ ...p, isPaused: false }));
   };
 
   const handleCancelHashing = () => {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    hashEngineRef.current.cancel();
+    workerRef.current?.postMessage({ type: 'CANCEL' });
     setProgress((p) => ({ ...p, isHashing: false, isPaused: false }));
   };
 
@@ -617,13 +710,12 @@ export default function App() {
   // Bulk Hash Import Verification
   const handleBulkVerifyPaste = (pastedText: string) => {
     const lines = pastedText.split('\n');
-    const hashDict = new Map<string, string>(); // key: hash or filename -> value: hash
+    const hashDict = new Map<string, string>();
 
     lines.forEach((line) => {
       const trimmed = line.trim();
       if (!trimmed || trimmed.startsWith('#')) return;
 
-      // Handle "hash  filename" format (e.g. from sha256sum or md5sum)
       const parts = trimmed.split(/\s+/);
       if (parts.length >= 2) {
         const potentialHash = parts[0].toLowerCase();
@@ -689,75 +781,25 @@ export default function App() {
     }
   };
 
+  // Clear Sample Data (from SampleDataModal)
+  const handleClearSampleData = () => {
+    setSession((prev) => {
+      const updated: ManifestSession = {
+        ...prev,
+        files: [],
+        custodyLedger: prev.custodyLedger.filter((e) => !e.isExample),
+      };
+      handleSaveSession(updated);
+      return updated;
+    });
+  };
+
   // Load Forensic Sample Dataset
   const handleLoadSampleData = () => {
-    const sampleFiles: EvidenceFile[] = [
-      {
-        id: 'sample-disk-001',
-        name: 'WS04_PhysicalDrive0.001',
-        relativePath: 'PhysicalDrive0/WS04_PhysicalDrive0.001',
-        sizeBytes: 2048576000, // ~1.9 GB chunk
-        mimeType: 'application/octet-stream (Raw Disk Image)',
-        lastModified: Date.now() - 3600000 * 24,
-        sha256: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-        md5: '098f6bcd4621d373cade4e832627b4f6',
-        hashingStatus: 'completed',
-        hashProgressPercent: 100,
-        expectedHash: '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08',
-        verificationStatus: 'match',
-        notes: 'EnCase / FTK raw image chunk verified against acquisition log.',
-      },
-      {
-        id: 'sample-mem-raw',
-        name: 'win11_x64_volatile_memory.raw',
-        relativePath: 'Live_Triage/win11_x64_volatile_memory.raw',
-        sizeBytes: 16777216000, // 16 GB RAM capture
-        mimeType: 'application/x-raw-memory',
-        lastModified: Date.now() - 3600000 * 20,
-        sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        md5: 'd41d8cd98f00b204e9800998ecf8427e',
-        hashingStatus: 'completed',
-        hashProgressPercent: 100,
-        expectedHash: 'd41d8cd98f00b204e9800998ecf8427e',
-        verificationStatus: 'match',
-        notes: 'Captured via WinPmem live triage memory acquisition script.',
-      },
-      {
-        id: 'sample-mismatch-log',
-        name: 'suspicious_powershell_history.txt',
-        relativePath: 'Users/Administrator/AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history.txt',
-        sizeBytes: 45281,
-        mimeType: 'text/plain',
-        lastModified: Date.now() - 3600000 * 12,
-        sha256: '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8',
-        md5: '1bc29b36f623ba82aaf6724fd3b16718',
-        hashingStatus: 'completed',
-        hashProgressPercent: 100,
-        expectedHash: '2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae', // intentionally mismatched!
-        verificationStatus: 'mismatch',
-        notes: 'INTEGRITY ALERT: File hash does not match pre-triage checksum ledger!',
-      },
-      {
-        id: 'sample-zero-byte',
-        name: 'canary_sentinel_empty.flag',
-        relativePath: 'canary_sentinel_empty.flag',
-        sizeBytes: 0,
-        mimeType: 'application/octet-stream',
-        lastModified: Date.now(),
-        sha256: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
-        md5: 'd41d8cd98f00b204e9800998ecf8427e',
-        hashingStatus: 'completed',
-        hashProgressPercent: 100,
-        expectedHash: '',
-        verificationStatus: 'unverified',
-        notes: '0-byte sentinel file test per ISO/IEC 27037 standard verification.',
-      },
-    ];
-
     setSession((prev) => {
       const next = {
         ...prev,
-        files: [...prev.files, ...sampleFiles],
+        files: [...prev.files, ...DEFAULT_SAMPLE_FILES],
       };
       handleSaveSession(next);
       return next;
@@ -771,8 +813,12 @@ export default function App() {
       if (!proceed) return;
     }
     const brandNew = createDefaultSession();
+    // Default brand new with empty files for manual ingestion
+    brandNew.files = [];
+    brandNew.custodyLedger = [];
     setSession(brandNew);
     handleSaveSession(brandNew);
+    setIsSampleDataModalOpen(false);
   };
 
   // Resume Session from IndexedDB
@@ -809,7 +855,6 @@ export default function App() {
       const list = await storageService.getAllSessions();
       setAllSessions(list);
 
-      // If we deleted active session, switch or create new
       if (sessionId === session.id) {
         if (list.length > 0) {
           setSession(list[0]);
@@ -845,9 +890,50 @@ export default function App() {
     }
   };
 
-  // Trigger Print / PDF
-  const handlePrint = () => {
-    window.print();
+  // Check if hashing is actively in flight
+  const isHashingActive = progress.isHashing || session.files.some(f => f.hashingStatus === 'hashing' || f.hashingStatus === 'pending');
+
+  // Trigger Print / PDF Execution with QR Audit Code Generation
+  const executePrint = async () => {
+    try {
+      const qr = await generateManifestHashQR(session);
+      setQrAuditData(qr);
+    } catch (err) {
+      console.warn('QR code baseline generation warning:', err);
+    }
+    setTimeout(() => {
+      window.print();
+    }, 100);
+  };
+
+  // Intercept Print if hashing is in flight
+  const handleTriggerPrint = () => {
+    if (isHashingActive) {
+      setPendingExportAction('print');
+      setIsExportWarningModalOpen(true);
+    } else {
+      executePrint();
+    }
+  };
+
+  // Intercept Export if hashing is in flight
+  const handleTriggerExport = () => {
+    if (isHashingActive) {
+      setPendingExportAction('export');
+      setIsExportWarningModalOpen(true);
+    } else {
+      setIsExportModalOpen(true);
+    }
+  };
+
+  // Bypasses warning and proceeds with incomplete manifest
+  const handleContinueExportIncomplete = () => {
+    setIsExportWarningModalOpen(false);
+    if (pendingExportAction === 'print') {
+      executePrint();
+    } else {
+      setIsExportModalOpen(true);
+    }
   };
 
   return (
@@ -858,15 +944,15 @@ export default function App() {
         ref={windowOverlayRef}
         aria-hidden={!isWindowDragging}
         style={{ display: isWindowDragging ? 'flex' : 'none' }}
-        className={`fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-8 border-4 border-dashed border-cyan-400 pointer-events-none transition-opacity duration-150 ${
-          isWindowDragging ? 'active opacity-100' : 'opacity-0 hidden'
-        }`}
+        className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex-col items-center justify-center p-6 border-4 border-dashed border-cyan-500/80 animate-in fade-in duration-150"
       >
-        <div className="p-4 rounded-2xl bg-cyan-950/80 border border-cyan-500/40 shadow-2xl flex flex-col items-center text-center max-w-md">
-          <UploadCloud className="w-16 h-16 text-cyan-400 animate-bounce mb-3" />
-          <h3 className="text-xl font-bold text-slate-100 font-mono">
-            Drop Evidence Files Anywhere
-          </h3>
+        <div className="p-6 rounded-3xl bg-cyan-950/40 border border-cyan-500/40 flex flex-col items-center text-center max-w-md shadow-2xl">
+          <div className="p-4 rounded-2xl bg-cyan-500/20 text-cyan-400 mb-4 animate-bounce">
+            <UploadCloud className="w-12 h-12" />
+          </div>
+          <h2 className="text-xl font-bold font-mono tracking-tight text-white">
+            DROP FORENSIC CONTAINER OR EVIDENCE
+          </h2>
           <p className="text-xs text-cyan-300 font-mono mt-2 leading-relaxed">
             Release cursor to automatically calculate ISO/IEC 27037 compliant SHA-256 and MD5 cryptographic hashes in TraceFlow.
           </p>
@@ -885,16 +971,17 @@ export default function App() {
         onToggleTheme={() => setIsDarkMode(!isDarkMode)}
         onOpenSessionManager={() => setIsSessionManagerOpen(true)}
         onNewManifest={handleNewManifest}
-        onOpenExport={() => setIsExportModalOpen(true)}
-        onPrint={handlePrint}
+        onOpenExport={handleTriggerExport}
+        onPrint={handleTriggerPrint}
       />
 
       {/* Main Forensic Workstation Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 no-print">
-        {/* 1. Case Header & Metadata Form */}
+        {/* 1. Case Header & Metadata Form with Progressive Disclosure */}
         <CaseHeaderForm
           metadata={session.metadata}
           onChange={handleMetadataChange}
+          hasFilesInitiated={session.files.length > 0}
         />
 
         {/* 2. Evidence File Ingestion & Real-Time Hashing Engine */}
@@ -908,9 +995,10 @@ export default function App() {
           isQueueEmpty={session.files.length === 0}
         />
 
-        {/* 3. Evidence File Table with Dual Hashing and Integrity Verification */}
+        {/* 3. Evidence File Table with Real-time Progress Bar, Speed, and ETA */}
         <EvidenceFileTable
           files={session.files}
+          progress={progress}
           onUpdateExpectedHash={handleUpdateExpectedHash}
           onRemoveFile={handleRemoveFile}
           onClearFiles={handleClearFiles}
@@ -935,7 +1023,6 @@ export default function App() {
       {/* Footer */}
       <footer className="border-t border-slate-800/80 bg-slate-950/80 py-5 mt-auto no-print">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-2.5">
-          {/* Branded Watermark */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-2 text-xs font-mono text-slate-400 border-b border-slate-800/60 pb-2.5">
             <div className="flex items-center gap-2 text-cyan-400/90 font-medium">
               <span className="inline-block w-2 h-2 rounded-full bg-cyan-400"></span>
@@ -980,11 +1067,28 @@ export default function App() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         session={session}
-        onTriggerPrint={handlePrint}
+        onTriggerPrint={handleTriggerPrint}
       />
 
-      {/* Dedicated Print-Only Manifest Document */}
-      <PrintableManifest session={session} />
+      {/* Export Warning Modal (intercepts print & export during active hashing) */}
+      <ExportWarningModal
+        isOpen={isExportWarningModalOpen}
+        onClose={() => setIsExportWarningModalOpen(false)}
+        onContinueExport={handleContinueExportIncomplete}
+        progress={progress}
+        actionType={pendingExportAction}
+      />
+
+      {/* Demonstration Case Notice Modal on Initial Page Load */}
+      <SampleDataModal
+        isOpen={isSampleDataModalOpen}
+        onClose={() => setIsSampleDataModalOpen(false)}
+        onClearSampleData={handleClearSampleData}
+        metadata={session.metadata}
+      />
+
+      {/* Dedicated Print-Only Manifest Document with Cryptographic Audit QR Code */}
+      <PrintableManifest session={session} qrAuditData={qrAuditData} />
     </div>
   );
 }

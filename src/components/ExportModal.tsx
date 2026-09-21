@@ -37,7 +37,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
   const csvContent = generateEvidenceCSV(session);
 
   const sha256ChecksumLines = session.files
-    .map((f) => `${f.sha256 || 'PENDING'}  ${f.name}`)
+    .map((f) => `${f.sha256 || 'PENDING_CALCULATION'}  ${f.name}`)
     .join('\n');
 
   const baseFileName = `${session.metadata.caseNumber || 'CASE'}_${session.metadata.evidenceItemNumber || 'ITEM'}`.replace(/[^a-zA-Z0-9_-]/g, '_');

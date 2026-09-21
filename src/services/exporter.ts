@@ -98,8 +98,8 @@ export function generateManifestJSON(session: ManifestSession): string {
         mimeType: file.mimeType || 'application/octet-stream',
         lastModifiedTimestamp: file.lastModified ? new Date(file.lastModified).toISOString() : 'Unknown',
         cryptographicHashes: {
-          sha256: file.sha256 || 'NOT_COMPUTED',
-          md5: file.md5 || 'NOT_COMPUTED',
+          sha256: file.sha256 || 'PENDING CALCULATION',
+          md5: file.md5 || 'PENDING CALCULATION',
         },
         verification: {
           expectedHashProvided: file.expectedHash || null,
@@ -179,8 +179,8 @@ export function generateEvidenceCSV(session: ManifestSession): string {
       file.sizeBytes,
       formatBytes(file.sizeBytes),
       file.mimeType || 'application/octet-stream',
-      file.sha256 || 'PENDING',
-      file.md5 || 'PENDING',
+      file.sha256 || 'PENDING CALCULATION',
+      file.md5 || 'PENDING CALCULATION',
       file.expectedHash || '',
       file.verificationStatus.toUpperCase(),
       file.notes || '',

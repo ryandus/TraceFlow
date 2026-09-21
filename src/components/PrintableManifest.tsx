@@ -1,15 +1,30 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ManifestSession } from '../types/forensic';
 import { formatBytes } from '../services/hasher';
+import { generateManifestHashQR, ManifestAuditQRResult } from '../services/qrAudit';
 
 interface PrintableManifestProps {
   session: ManifestSession;
+  qrAuditData?: ManifestAuditQRResult | null;
 }
 
-export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session }) => {
+export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, qrAuditData }) => {
   const { metadata, files, custodyLedger } = session;
+  const [auditQR, setAuditQR] = useState<ManifestAuditQRResult | null>(qrAuditData || null);
+
+  useEffect(() => {
+    if (qrAuditData) {
+      setAuditQR(qrAuditData);
+    } else {
+      generateManifestHashQR(session).then((res) => {
+        setAuditQR(res);
+      });
+    }
+  }, [session, qrAuditData]);
+
   const verifiedCount = files.filter((f) => f.verificationStatus === 'match').length;
   const mismatchCount = files.filter((f) => f.verificationStatus === 'mismatch').length;
+  const pendingCount = files.filter((f) => !f.sha256 || f.hashingStatus !== 'completed').length;
   const totalSizeBytes = files.reduce((acc, f) => acc + (f.sizeBytes || 0), 0);
 
   return (
@@ -96,25 +111,26 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session })
           <div className="text-[9pt] font-mono">
             Status: <strong>{verifiedCount} Verified</strong>
             {mismatchCount > 0 && <span className="text-red-700 font-bold ml-2">({mismatchCount} MISMATCHES FLAGGED)</span>}
+            {pendingCount > 0 && <span className="text-amber-700 font-bold ml-2">({pendingCount} INCOMPLETE / PENDING CALCULATION)</span>}
           </div>
         </div>
 
         <table className="w-full text-left text-[8pt] border border-collapse border-gray-400">
           <thead>
             <tr className="bg-gray-200 text-black font-bold">
-              <th className="border border-gray-400 p-1 w-6 text-center">#</th>
+              <th className="border border-gray-400 p-1 w-8 text-center">#</th>
               <th className="border border-gray-400 p-1">File Name & Path</th>
-              <th className="border border-gray-400 p-1 w-16">Size</th>
-              <th className="border border-gray-400 p-1 font-mono">SHA-256 Digest</th>
-              <th className="border border-gray-400 p-1 font-mono">MD5 Digest</th>
-              <th className="border border-gray-400 p-1 w-20 text-center">Verification</th>
+              <th className="border border-gray-400 p-1 w-20">Size</th>
+              <th className="border border-gray-400 p-1">SHA-256 Digest</th>
+              <th className="border border-gray-400 p-1 w-48">MD5 Digest</th>
+              <th className="border border-gray-400 p-1 w-20 text-center">Audit Status</th>
             </tr>
           </thead>
           <tbody>
             {files.map((file, idx) => (
-              <tr key={file.id} className="border-b border-gray-300">
+              <tr key={file.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                 <td className="border border-gray-400 p-1 text-center font-mono">{idx + 1}</td>
-                <td className="border border-gray-400 p-1 font-mono break-all">
+                <td className="border border-gray-400 p-1 font-mono">
                   <strong>{file.name}</strong>
                   {file.relativePath && file.relativePath !== file.name && (
                     <div className="text-[7pt] text-gray-600">{file.relativePath}</div>
@@ -124,16 +140,26 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session })
                   {formatBytes(file.sizeBytes)}
                 </td>
                 <td className="border border-gray-400 p-1 font-mono text-[7pt] break-all">
-                  {file.sha256 || 'PENDING'}
+                  {file.sha256 ? (
+                    file.sha256
+                  ) : (
+                    <span className="text-amber-800 font-bold uppercase tracking-wider">PENDING CALCULATION</span>
+                  )}
                 </td>
                 <td className="border border-gray-400 p-1 font-mono text-[7pt] break-all">
-                  {file.md5 || 'PENDING'}
+                  {file.md5 ? (
+                    file.md5
+                  ) : (
+                    <span className="text-amber-800 font-bold uppercase tracking-wider">PENDING CALCULATION</span>
+                  )}
                 </td>
                 <td className="border border-gray-400 p-1 text-center font-bold text-[7pt]">
                   {file.verificationStatus === 'match' ? (
                     <span className="text-green-800">MATCH ✓</span>
                   ) : file.verificationStatus === 'mismatch' ? (
                     <span className="text-red-700">MISMATCH ⚠</span>
+                  ) : !file.sha256 ? (
+                    <span className="text-amber-800">INCOMPLETE</span>
                   ) : (
                     <span className="text-gray-600">Unverified</span>
                   )}
@@ -168,48 +194,34 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session })
               </tr>
             </thead>
             <tbody>
-              {custodyLedger.map((entry) => {
-                const isSample = entry.isExample === true || 
-                  (entry.sequenceNumber === 1 && (entry.releasedByName.toLowerCase().includes('secops') || entry.receivedByName.toLowerCase().includes('reynolds')));
-                return (
-                  <tr key={entry.id} className={`border-b border-gray-300 ${isSample ? 'bg-amber-50/60' : ''}`}>
-                    <td className="border border-gray-400 p-1 text-center font-mono font-bold">
-                      #{entry.sequenceNumber}
-                      {isSample && (
-                        <span className="block text-[6pt] text-amber-800 font-bold uppercase tracking-wider">
-                          [Sample]
-                        </span>
-                      )}
-                    </td>
-                    <td className="border border-gray-400 p-1 font-mono text-[7pt]">
-                      {entry.timestamp}
-                    </td>
-                    <td className="border border-gray-400 p-1">
-                      <strong>{entry.releasedByName}</strong>
-                      {isSample && (
-                        <span className="ml-1 text-[6.5pt] text-amber-700 italic font-normal">
-                          (Example Custodian)
-                        </span>
-                      )}
-                      <div className="text-[7pt] text-gray-600">{entry.releasedByRole} • {entry.releasedByAgency}</div>
-                    </td>
-                    <td className="border border-gray-400 p-1">
-                      <strong>{entry.receivedByName}</strong>
-                      <div className="text-[7pt] text-gray-600">{entry.receivedByRole} • {entry.receivedByAgency}</div>
-                    </td>
-                    <td className="border border-gray-400 p-1">
-                      <strong>{entry.purpose}</strong>
-                      <div className="text-[7pt] text-gray-600">{entry.transferLocation}</div>
-                    </td>
-                    <td className="border border-gray-400 p-1 text-[7pt]">
-                      {entry.packagingCondition}
-                    </td>
-                    <td className="border border-gray-400 p-1 text-center font-mono font-bold">
-                      {entry.signeeInitials}
-                    </td>
-                  </tr>
-                );
-              })}
+              {custodyLedger.map((entry) => (
+                <tr key={entry.id} className="bg-white">
+                  <td className="border border-gray-400 p-1 text-center font-mono font-bold">
+                    {entry.sequenceNumber}
+                  </td>
+                  <td className="border border-gray-400 p-1 font-mono text-[7pt]">
+                    {entry.timestamp}
+                  </td>
+                  <td className="border border-gray-400 p-1">
+                    <strong>{entry.releasedByName}</strong>
+                    <div className="text-[7pt] text-gray-600">{entry.releasedByRole} • {entry.releasedByAgency}</div>
+                  </td>
+                  <td className="border border-gray-400 p-1">
+                    <strong>{entry.receivedByName}</strong>
+                    <div className="text-[7pt] text-gray-600">{entry.receivedByRole} • {entry.receivedByAgency}</div>
+                  </td>
+                  <td className="border border-gray-400 p-1">
+                    <strong>{entry.purpose}</strong>
+                    <div className="text-[7pt] text-gray-600">{entry.transferLocation}</div>
+                  </td>
+                  <td className="border border-gray-400 p-1 text-[7pt]">
+                    {entry.packagingCondition}
+                  </td>
+                  <td className="border border-gray-400 p-1 text-center font-mono font-bold">
+                    {entry.signeeInitials}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         )}
@@ -241,9 +253,43 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session })
         </div>
       </div>
 
+      {/* 5. Audit Defensibility & Cryptographic QR Verification Block */}
+      <div className="border border-black p-3 mt-4 text-xs bg-gray-50 page-break-inside-avoid">
+        <h3 className="font-bold text-black uppercase text-[9pt] mb-2 flex items-center justify-between">
+          <span>5. Audit Defensibility & Cryptographic Ledger Baseline</span>
+          <span className="text-[7.5pt] font-mono font-normal">ISO/IEC 27037:2012 §8.4</span>
+        </h3>
+
+        <div className="flex items-center gap-4">
+          {auditQR?.qrDataUrl ? (
+            <img 
+              src={auditQR.qrDataUrl} 
+              alt="Cryptographic Audit QR Code" 
+              className="w-24 h-24 border border-black p-1 bg-white shrink-0" 
+            />
+          ) : (
+            <div className="w-24 h-24 border border-gray-400 flex items-center justify-center text-[7pt] text-gray-500 shrink-0">
+              Generating QR...
+            </div>
+          )}
+
+          <div className="space-y-1 min-w-0 text-[8pt] font-mono leading-relaxed">
+            <div>
+              <span className="text-gray-600">Manifest SHA-256 Fingerprint:</span>
+              <div className="font-bold text-[7.5pt] break-all select-all text-black bg-white border border-gray-300 p-1 rounded">
+                {auditQR?.manifestHash || 'Generating cryptographic baseline...'}
+              </div>
+            </div>
+            <p className="text-[7pt] text-gray-600 font-sans leading-tight pt-1">
+              This physical manifest contains an immutable cryptographic baseline digest. Scan the QR code with any standard camera or air-gapped forensic scanner to cross-examine digital records against this printed exhibit.
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Official Watermark */}
       <div className="mt-4 pt-2 border-t border-gray-400 text-center text-[7.5pt] text-gray-500 font-mono">
-        TraceFlow — An Evidence Custody & Hash Manifest Engine | Engineered by R. Hanks
+        TraceFlow — ISO/IEC 27037 Digital Forensic Custody & Hash Manifest Engine
       </div>
     </div>
   );

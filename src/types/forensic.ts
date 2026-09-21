@@ -54,6 +54,8 @@ export interface EvidenceFile {
   md5: string;
   hashingStatus: 'pending' | 'hashing' | 'completed' | 'error';
   hashProgressPercent: number;
+  speedBytesPerSec?: number;
+  etaSeconds?: number;
   errorMessage?: string;
   expectedHash?: string;
   verificationStatus: HashVerificationStatus;

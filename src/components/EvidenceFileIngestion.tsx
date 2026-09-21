@@ -152,9 +152,8 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
           files: droppedFiles,
           file: droppedFiles[0],
         });
-      } else {
-        onFilesSelected(droppedFiles);
       }
+      onFilesSelected(droppedFiles);
     }
   };
 
@@ -167,9 +166,8 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
           files,
           file: files[0],
         });
-      } else {
-        onFilesSelected(e.target.files);
       }
+      onFilesSelected(e.target.files);
       e.target.value = ''; // Reset input to allow re-selecting same files
     }
   };
@@ -183,9 +181,8 @@ export const EvidenceFileIngestion: React.FC<EvidenceFileIngestionProps> = ({
           files,
           file: files[0],
         });
-      } else {
-        onFilesSelected(e.target.files, true);
       }
+      onFilesSelected(e.target.files, true);
       e.target.value = '';
     }
   };
