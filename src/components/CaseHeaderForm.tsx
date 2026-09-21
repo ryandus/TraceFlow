@@ -23,6 +23,8 @@ interface CaseHeaderFormProps {
   metadata: CaseMetadata;
   onChange: (updated: Partial<CaseMetadata>) => void;
   hasFilesInitiated?: boolean;
+  isCollapsed?: boolean;
+  onToggleCollapse?: (collapsed: boolean) => void;
 }
 
 export const SAMPLE_CASE_DEFAULTS = {
@@ -68,17 +70,34 @@ const WRITE_BLOCKERS: WriteBlockerType[] = [
 export const CaseHeaderForm: React.FC<CaseHeaderFormProps> = ({ 
   metadata, 
   onChange,
-  hasFilesInitiated = false 
+  hasFilesInitiated = false,
+  isCollapsed,
+  onToggleCollapse,
 }) => {
-  const [isExpanded, setIsExpanded] = useState<boolean>(true);
+  const [internalExpanded, setInternalExpanded] = useState<boolean>(isCollapsed !== undefined ? !isCollapsed : true);
   const prevFilesInitiatedRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (isCollapsed !== undefined) {
+      setInternalExpanded(!isCollapsed);
+    }
+  }, [isCollapsed]);
+
+  const isExpanded = isCollapsed !== undefined ? !isCollapsed : internalExpanded;
+
+  const setExpanded = (expanded: boolean) => {
+    setInternalExpanded(expanded);
+    if (onToggleCollapse) {
+      onToggleCollapse(!expanded);
+    }
+  };
 
   // Progressive Disclosure: Auto-collapse into a compact locked ribbon when
   // Case Number and Lead Examiner are present and first file drop is initiated
   useEffect(() => {
     const hasRequiredFields = Boolean(metadata.caseNumber?.trim()) && Boolean(metadata.examinerName?.trim());
     if (!prevFilesInitiatedRef.current && hasFilesInitiated && hasRequiredFields) {
-      setIsExpanded(false);
+      setExpanded(false);
     }
     prevFilesInitiatedRef.current = hasFilesInitiated;
   }, [hasFilesInitiated, metadata.caseNumber, metadata.examinerName]);
@@ -95,7 +114,7 @@ export const CaseHeaderForm: React.FC<CaseHeaderFormProps> = ({
     }
   };
 
-  const isLockedRibbon = !isExpanded && hasFilesInitiated;
+  const isLockedRibbon = !isExpanded;
 
   return (
     <div className={`transition-all duration-300 ${
@@ -133,7 +152,7 @@ export const CaseHeaderForm: React.FC<CaseHeaderFormProps> = ({
           <div className="flex items-center gap-2 shrink-0">
             <button
               type="button"
-              onClick={() => setIsExpanded(true)}
+              onClick={() => setExpanded(true)}
               className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 transition"
               title="Unlock / Edit case metadata"
             >
@@ -142,7 +161,7 @@ export const CaseHeaderForm: React.FC<CaseHeaderFormProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => setIsExpanded(true)}
+              onClick={() => setExpanded(true)}
               className="p-1 text-slate-400 hover:text-slate-200 transition"
               aria-label="Expand case header"
             >
@@ -182,7 +201,7 @@ export const CaseHeaderForm: React.FC<CaseHeaderFormProps> = ({
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsExpanded(!isExpanded)}
+                onClick={() => setExpanded(!isExpanded)}
                 className="p-1.5 text-slate-400 hover:text-slate-200 hover:bg-slate-800 rounded-lg transition"
                 aria-label={isExpanded ? 'Collapse case header form' : 'Expand case header form'}
               >

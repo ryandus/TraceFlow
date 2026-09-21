@@ -154,6 +154,7 @@ export default function App() {
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isExportWarningModalOpen, setIsExportWarningModalOpen] = useState(false);
   const [isSampleDataModalOpen, setIsSampleDataModalOpen] = useState(true);
+  const [isHeaderCollapsed, setIsHeaderCollapsed] = useState<boolean>(false);
   const [pendingExportAction, setPendingExportAction] = useState<'print' | 'export'>('print');
   const [qrAuditData, setQrAuditData] = useState<ManifestAuditQRResult | null>(null);
 
@@ -794,6 +795,57 @@ export default function App() {
     });
   };
 
+  // State Propagation & Header Collapsing: Initialize Case Context from Intake Modal
+  const handleInitializeCaseContext = (intakeValues: Partial<CaseMetadata>, clearFiles: boolean) => {
+    setSession((prev) => {
+      const updatedMetadata: CaseMetadata = {
+        ...prev.metadata,
+        ...intakeValues,
+      };
+
+      const updatedFiles = clearFiles ? [] : prev.files;
+      const updatedSummary = {
+        ...prev.summary,
+        totalFiles: updatedFiles.length,
+        totalSizeBytes: updatedFiles.reduce((acc, f) => acc + (f.sizeBytes || 0), 0),
+        verifiedFiles: updatedFiles.filter((f) => f.verificationStatus === 'match').length,
+        flaggedMismatches: updatedFiles.filter((f) => f.verificationStatus === 'mismatch').length,
+      };
+
+      // Propagate examiner credentials into CoC entries
+      const updatedCustodyLedger = prev.custodyLedger.map((entry) => ({
+        ...entry,
+        receivedByName: intakeValues.examinerName || entry.receivedByName,
+        receivedByRole: intakeValues.examinerBadgeId ? `Lead Examiner (${intakeValues.examinerBadgeId})` : entry.receivedByRole,
+        receivedByAgency: intakeValues.agencyOrganization || entry.receivedByAgency,
+        releasedByAgency: intakeValues.agencyOrganization || entry.releasedByAgency,
+        transferLocation: intakeValues.locationFound || entry.transferLocation,
+        signeeInitials: (intakeValues.examinerName || 'EX')
+          .replace(/Agent|Inspector|Officer|Dr\./gi, '')
+          .trim()
+          .split(/\s+/)
+          .map((n) => n[0])
+          .join('')
+          .toUpperCase() || 'EX',
+      }));
+
+      const nextSession: ManifestSession = {
+        ...prev,
+        metadata: updatedMetadata,
+        files: updatedFiles,
+        summary: updatedSummary,
+        custodyLedger: updatedCustodyLedger,
+        lastSavedAt: new Date().toISOString(),
+      };
+      handleSaveSession(nextSession);
+      return nextSession;
+    });
+
+    // Programmatically collapse the main Case Header into a compact, locked summary ribbon
+    setIsHeaderCollapsed(true);
+    setIsSampleDataModalOpen(false);
+  };
+
   // Load Forensic Sample Dataset
   const handleLoadSampleData = () => {
     setSession((prev) => {
@@ -982,6 +1034,8 @@ export default function App() {
           metadata={session.metadata}
           onChange={handleMetadataChange}
           hasFilesInitiated={session.files.length > 0}
+          isCollapsed={isHeaderCollapsed}
+          onToggleCollapse={setIsHeaderCollapsed}
         />
 
         {/* 2. Evidence File Ingestion & Real-Time Hashing Engine */}
@@ -1079,12 +1133,13 @@ export default function App() {
         actionType={pendingExportAction}
       />
 
-      {/* Demonstration Case Notice Modal on Initial Page Load */}
+      {/* Investigation Intake & Triage Setup Modal on Initial Page Load */}
       <SampleDataModal
         isOpen={isSampleDataModalOpen}
         onClose={() => setIsSampleDataModalOpen(false)}
         onClearSampleData={handleClearSampleData}
         metadata={session.metadata}
+        onInitializeCase={handleInitializeCaseContext}
       />
 
       {/* Dedicated Print-Only Manifest Document with Cryptographic Audit QR Code */}
