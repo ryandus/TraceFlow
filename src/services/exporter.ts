@@ -151,7 +151,7 @@ export function generateEvidenceCSV(session: ManifestSession): string {
   const lines: string[] = [];
 
   // Section 1: Case Details
-  lines.push('# FORENSIC EVIDENCE MANIFEST - ISO/IEC 27037 COMPLIANT');
+  lines.push('# FORENSIC EVIDENCE MANIFEST (PREPARED WITH REFERENCE TO ISO/IEC 27037 GUIDANCE)');
   lines.push(`Case Number,${escapeCSV(session.metadata.caseNumber)}`);
   lines.push(`Evidence Item #,${escapeCSV(session.metadata.evidenceItemNumber)}`);
   lines.push(`Examiner,${escapeCSV(session.metadata.examinerName)} (${escapeCSV(session.metadata.examinerBadgeId)})`);

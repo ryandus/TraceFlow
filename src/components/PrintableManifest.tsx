@@ -38,7 +38,7 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
               Digital Evidence Integrity & Chain-of-Custody Manifest
             </h1>
             <p className="text-xs font-semibold tracking-wide text-gray-700 uppercase mt-0.5">
-              ISO/IEC 27037:2012 COMPLIANT • DIGITAL FORENSICS & INCIDENT RESPONSE (DFIR)
+              Prepared with reference to ISO/IEC 27037:2012 guidance • DIGITAL FORENSICS & INCIDENT RESPONSE (DFIR)
             </p>
             <p className="text-xs text-gray-600">
               Agency: <strong>{metadata.agencyOrganization || 'Forensics Investigation Division'}</strong>
@@ -228,14 +228,19 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
         )}
       </div>
 
-      {/* Formal Certification Block & Signatures */}
+      {/* Tool Output Statement & Examiner Attestation */}
       <div className="border border-black p-3 mt-4 text-xs page-break-inside-avoid">
         <h3 className="font-bold text-black uppercase text-[9pt] mb-1">
-          4. Forensic Examiner Attestation & Legal Certification
+          4. Tool Output Statement & Examiner Attestation
         </h3>
-        <p className="text-[8pt] text-gray-700 leading-tight mb-4">
-          I hereby certify under penalty of law that the digital evidence items specified in this manifest were acquired, cataloged, and handled in compliance with ISO/IEC 27037 standards for digital evidence handling. The SHA-256 and MD5 cryptographic digests recorded herein reflect the true bit-level integrity of the files at the time of calculation, and the chain of custody recorded is unbroken and accurate.
+        <p className="text-[8pt] text-gray-700 leading-tight mb-3">
+          The SHA-256 and MD5 values in this manifest were calculated by TraceFlow from the files as presented to it. A verification status reflects only a comparison against the expected hash entered by the examiner. The case, acquisition, and custody details above were entered by the examiner; this tool output does not by itself establish the acquisition method, write protection, or continuity of custody.
         </p>
+
+        <p className="text-[8pt] text-gray-600 uppercase font-semibold">Examiner Statement</p>
+        <div className="border-b border-gray-400 h-5"></div>
+        <div className="border-b border-gray-400 h-5"></div>
+        <div className="border-b border-gray-400 h-5"></div>
 
         <div className="grid grid-cols-2 gap-8 pt-4">
           <div>
@@ -254,11 +259,10 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
         </div>
       </div>
 
-      {/* 5. Audit Defensibility & Cryptographic QR Verification Block */}
+      {/* 5. Manifest Fingerprint & QR Block */}
       <div className="border border-black p-3 mt-4 text-xs bg-gray-50 page-break-inside-avoid">
-        <h3 className="font-bold text-black uppercase text-[9pt] mb-2 flex items-center justify-between">
-          <span>5. Audit Defensibility & Cryptographic Ledger Baseline</span>
-          <span className="text-[7.5pt] font-mono font-normal">ISO/IEC 27037:2012 §8.4</span>
+        <h3 className="font-bold text-black uppercase text-[9pt] mb-2">
+          5. Manifest Fingerprint
         </h3>
 
         <div className="flex items-center gap-4">
@@ -282,7 +286,7 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
               </div>
             </div>
             <p className="text-[7pt] text-gray-600 font-sans leading-tight pt-1">
-              This physical manifest contains an immutable cryptographic baseline digest. Scan the QR code with any standard camera or air-gapped forensic scanner to cross-examine digital records against this printed exhibit.
+              SHA-256 digest of this manifest's case details, file hashes, and custody entries at the time this copy was generated. The QR code encodes the case number, exhibit number, examiner, this fingerprint, and the generation time.
             </p>
           </div>
         </div>
@@ -290,7 +294,7 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
 
       {/* Official Watermark */}
       <div className="mt-4 pt-2 border-t border-gray-400 text-center text-[7.5pt] text-gray-500 font-mono">
-        TraceFlow — ISO/IEC 27037 Digital Forensic Custody & Hash Manifest Engine
+        TraceFlow — Digital Evidence Hash Manifest & Custody Log
       </div>
     </div>
   );
