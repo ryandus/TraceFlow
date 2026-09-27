@@ -1,5 +1,6 @@
 import { EvidenceFile, ManifestSession } from '../types/forensic';
 import { formatBytes } from './hasher';
+import { manifestFingerprint } from './qrAudit';
 
 export interface ExportManifestJSON {
   complianceStandard: string;
@@ -60,6 +61,11 @@ export interface ExportManifestJSON {
     signeeInitials: string;
     hasDigitalSignature: boolean;
   }>;
+  manifestFingerprint: {
+    algorithm: 'SHA-256';
+    value: string;
+    canonicalPayload: string;
+  };
 }
 
 // Which digest the expected hash matched, so reports show whether a match rests on SHA-256 or legacy MD5.
@@ -76,6 +82,7 @@ export function generateManifestJSON(session: ManifestSession): string {
   const mismatchCount = session.files.filter((f) => f.verificationStatus === 'mismatch').length;
   const unverifiedCount = session.files.filter((f) => f.verificationStatus === 'unverified').length;
   const totalSizeBytes = session.files.reduce((acc, f) => acc + (f.sizeBytes || 0), 0);
+  const fingerprint = manifestFingerprint(session);
 
   const payload: ExportManifestJSON = {
     complianceStandard: 'ISO/IEC 27037:2012 - Digital Evidence Handling & Custody',
@@ -136,6 +143,11 @@ export function generateManifestJSON(session: ManifestSession): string {
       signeeInitials: entry.signeeInitials,
       hasDigitalSignature: !!entry.signatureDataUrl,
     })),
+    manifestFingerprint: {
+      algorithm: 'SHA-256',
+      value: fingerprint.sha256,
+      canonicalPayload: fingerprint.canonicalPayload,
+    },
   };
 
   return JSON.stringify(payload, null, 2);
