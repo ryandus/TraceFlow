@@ -9,20 +9,10 @@ export interface ManifestAuditQRResult {
   generatedAt: string;
 }
 
-/**
- * Audit Defensibility (QR Code)
- * Generates an immutable cryptographic SHA-256 fingerprint of the finalized manifest
- * and renders a high-density QR code for physical ledger printout attestation.
- */
-export async function generateManifestHashQR(
-  session: ManifestSession,
-  domString?: string
-): Promise<ManifestAuditQRResult> {
-  const generatedAt = new Date().toISOString();
-
-  // Canonical cryptographic representation of the entire case manifest
-  const canonicalManifestPayload = domString || JSON.stringify({
-    standard: 'ISO/IEC 27037:2012',
+// Deterministic: the same session data always yields the same payload and hash,
+// so the fingerprint can be recomputed later from canonicalPayload in the JSON export.
+export function manifestFingerprint(session: ManifestSession): { canonicalPayload: string; sha256: string } {
+  const canonicalPayload = JSON.stringify({
     caseNumber: session.metadata.caseNumber || 'UNTITLED',
     evidenceItemNumber: session.metadata.evidenceItemNumber || 'ITEM-01',
     leadExaminer: session.metadata.examinerName,
@@ -47,19 +37,26 @@ export async function generateManifestHashQR(
       purpose: c.purpose,
       initials: c.signeeInitials,
     })),
-    generatedAt,
   });
 
-  const manifestHash = sha256(canonicalManifestPayload).toLowerCase();
+  return { canonicalPayload, sha256: sha256(canonicalPayload).toLowerCase() };
+}
 
-  // The QR code contains verified audit baseline credentials for court admissibility
+/**
+ * Renders a QR code carrying the manifest fingerprint for the printed manifest.
+ */
+export async function generateManifestHashQR(session: ManifestSession): Promise<ManifestAuditQRResult> {
+  const generatedAt = new Date().toISOString();
+  const manifestHash = manifestFingerprint(session).sha256;
+
   const qrVerificationPayload = JSON.stringify({
-    title: 'TraceFlow ISO-27037 Digital Evidence Manifest',
+    title: 'TraceFlow Digital Evidence Manifest',
     case: session.metadata.caseNumber,
     item: session.metadata.evidenceItemNumber,
     examiner: session.metadata.examinerName,
     sha256Baseline: manifestHash,
-    verifiedFiles: session.files.filter((f) => f.hashingStatus === 'completed').length,
+    hashedFiles: session.files.filter((f) => f.hashingStatus === 'completed').length,
+    verifiedFiles: session.files.filter((f) => f.verificationStatus === 'match').length,
     totalFiles: session.files.length,
     issuedAt: generatedAt,
   });
