@@ -1,8 +1,7 @@
-import { ManifestSession } from '../types/forensic';
+import { EvidenceFile, ManifestSession } from '../types/forensic';
 import { formatBytes } from './hasher';
 
 export interface ExportManifestJSON {
-  $schema: string;
   complianceStandard: string;
   generator: string;
   exportTimestamp: string;
@@ -37,6 +36,7 @@ export interface ExportManifestJSON {
       verification: {
         expectedHashProvided: string | null;
         verificationStatus: string;
+        matchedAlgorithm: 'SHA-256' | 'MD5' | null;
       };
       notes?: string;
     }>;
@@ -62,6 +62,15 @@ export interface ExportManifestJSON {
   }>;
 }
 
+// Which digest the expected hash matched, so reports show whether a match rests on SHA-256 or legacy MD5.
+export function matchedAlgorithm(file: EvidenceFile): 'SHA-256' | 'MD5' | null {
+  if (file.verificationStatus !== 'match') return null;
+  const expected = (file.expectedHash || '').trim().toLowerCase();
+  if (file.sha256 && file.sha256.toLowerCase() === expected) return 'SHA-256';
+  if (file.md5 && file.md5.toLowerCase() === expected) return 'MD5';
+  return null;
+}
+
 export function generateManifestJSON(session: ManifestSession): string {
   const verifiedCount = session.files.filter((f) => f.verificationStatus === 'match').length;
   const mismatchCount = session.files.filter((f) => f.verificationStatus === 'mismatch').length;
@@ -69,7 +78,6 @@ export function generateManifestJSON(session: ManifestSession): string {
   const totalSizeBytes = session.files.reduce((acc, f) => acc + (f.sizeBytes || 0), 0);
 
   const payload: ExportManifestJSON = {
-    $schema: 'https://standards.iso.org/iso/27037/forensic-evidence-manifest.json',
     complianceStandard: 'ISO/IEC 27037:2012 - Digital Evidence Handling & Custody',
     generator: 'Forensic Hash & Chain-of-Custody Manifest Generator v1.0',
     exportTimestamp: new Date().toISOString(),
@@ -104,6 +112,7 @@ export function generateManifestJSON(session: ManifestSession): string {
         verification: {
           expectedHashProvided: file.expectedHash || null,
           verificationStatus: file.verificationStatus,
+          matchedAlgorithm: matchedAlgorithm(file),
         },
         notes: file.notes || undefined,
       })),
@@ -168,6 +177,7 @@ export function generateEvidenceCSV(session: ManifestSession): string {
     'MD5 Digest',
     'Expected Hash',
     'Integrity Status',
+    'Matched Algorithm',
     'Notes',
   ].map(escapeCSV).join(','));
 
@@ -183,6 +193,7 @@ export function generateEvidenceCSV(session: ManifestSession): string {
       file.md5 || 'PENDING CALCULATION',
       file.expectedHash || '',
       file.verificationStatus.toUpperCase(),
+      matchedAlgorithm(file) || '',
       file.notes || '',
     ].map(escapeCSV).join(','));
   });

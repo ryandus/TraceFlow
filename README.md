@@ -10,7 +10,7 @@
 
 ---
 
-> **TraceFlow** is a client-side digital forensics utility designed for incident response handlers (DFIR), forensic examiners, and investigators. It computes dual-hash manifests (SHA-256 / MD5) and generates tamper-evident chain-of-custody ledgers designed around ISO/IEC 27037 guidance.
+> **TraceFlow** is a client-side digital forensics utility designed for incident response handlers (DFIR), forensic examiners, and investigators. It computes dual-hash manifests (SHA-256 / MD5) with optional verification against a reference hash, and generates tamper-evident chain-of-custody ledgers designed around ISO/IEC 27037 guidance.
 
 ## ✨ Key Features
 
