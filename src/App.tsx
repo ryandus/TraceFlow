@@ -84,7 +84,7 @@ export const DEFAULT_SAMPLE_FILES: EvidenceFile[] = [
     hashProgressPercent: 100,
     expectedHash: '',
     verificationStatus: 'unverified',
-    notes: '0-byte sentinel file test per ISO/IEC 27037 standard verification.',
+    notes: '0-byte sentinel file test.',
   },
 ];
 
@@ -990,7 +990,7 @@ export default function App() {
       const all = await storageService.getAllSessions();
       const backupPayload = {
         exportedAt: new Date().toISOString(),
-        backupStandard: 'ISO/IEC 27037 Evidence Manifest Repository',
+        backupFormat: 'TraceFlow Evidence Manifest Vault Backup',
         sessionsCount: all.length,
         sessions: all,
       };
@@ -1068,7 +1068,7 @@ export default function App() {
             DROP FORENSIC CONTAINER OR EVIDENCE
           </h2>
           <p className="text-xs text-cyan-300 font-mono mt-2 leading-relaxed">
-            Release cursor to automatically calculate ISO/IEC 27037 compliant SHA-256 and MD5 cryptographic hashes in TraceFlow.
+            Release cursor to calculate SHA-256 and MD5 hashes locally in TraceFlow.
           </p>
         </div>
       </div>
@@ -1151,13 +1151,13 @@ export default function App() {
 
           <div className="flex flex-wrap items-center justify-between gap-3 text-[11px] text-slate-500 font-mono">
             <div className="flex flex-wrap items-center gap-2">
-              <span>ISO/IEC 27037 Compliance Standard</span>
+              <span>Designed around ISO/IEC 27037 guidance</span>
               <span>•</span>
-              <span>Client-Side SubtleCrypto & Stream Processing</span>
+              <span>Client-Side js-sha256 / spark-md5 Stream Hashing</span>
               <span>•</span>
               <span>Zero Server Uploads</span>
               <span>•</span>
-              <span>Local Air-Gapped Privacy</span>
+              <span>Local-Only Evidence Processing</span>
             </div>
             <div>
               Status: <span className="text-emerald-400">Operational</span>
