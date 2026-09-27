@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ManifestSession } from '../types/forensic';
 import { formatBytes } from '../services/hasher';
+import { matchedAlgorithm } from '../services/exporter';
 import { generateManifestHashQR, ManifestAuditQRResult } from '../services/qrAudit';
 
 interface PrintableManifestProps {
@@ -155,7 +156,7 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
                 </td>
                 <td className="border border-gray-400 p-1 text-center font-bold text-[7pt]">
                   {file.verificationStatus === 'match' ? (
-                    <span className="text-green-800">MATCH ✓</span>
+                    <span className="text-green-800">MATCH ✓ {matchedAlgorithm(file)}</span>
                   ) : file.verificationStatus === 'mismatch' ? (
                     <span className="text-red-700">MISMATCH ⚠</span>
                   ) : !file.sha256 ? (
