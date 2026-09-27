@@ -73,7 +73,7 @@ export const ExportModal: React.FC<ExportModalProps> = ({
               <h2 className="text-base font-semibold text-slate-100 flex items-center gap-2">
                 Export Evidence Manifest & Reports
                 <span className="text-xs font-mono font-normal px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                  ISO/IEC 27037 Compliant
+                  ISO/IEC 27037 Guidance
                 </span>
               </h2>
               <p className="text-xs text-slate-400">
