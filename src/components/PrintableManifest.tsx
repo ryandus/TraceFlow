@@ -286,7 +286,7 @@ export const PrintableManifest: React.FC<PrintableManifestProps> = ({ session, q
               </div>
             </div>
             <p className="text-[7pt] text-gray-600 font-sans leading-tight pt-1">
-              SHA-256 digest of this manifest's case details, file hashes, and custody entries at the time this copy was generated. The QR code encodes the case number, exhibit number, examiner, this fingerprint, and the generation time.
+              SHA-256 digest of this manifest's case details, file hashes, verification statuses, and custody entries. The same recorded data always produces the same fingerprint. The JSON export contains the exact text that was hashed (manifestFingerprint.canonicalPayload), so the fingerprint can be recalculated independently. The QR code encodes the case number, exhibit number, examiner, this fingerprint, file counts, and the print time.
             </p>
           </div>
         </div>
