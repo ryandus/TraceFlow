@@ -2,9 +2,9 @@
 
 *An Evidence Custody & Hash Manifest Engine*
 
-
-
 *Engineered by R. Hanks*
+
+> Part of the **[CustodyFlow](https://github.com/ryandus/custodyflow)** suite: defensible DFIR and eDiscovery workflow tools.
 
 **[Launch Live TraceFlow Application →](https://ryandus.github.io/TraceFlow/)**
 
@@ -32,7 +32,3 @@
 * **Cryptography:** js-sha256 (streamed SHA-256), spark-md5 (streamed MD5)
 * **Persistence:** Client-side IndexedDB
 * **Build & CI/CD:** Vite, Bun, GitHub Actions, GitHub Pages
-
-```
-
-```
