@@ -32,3 +32,7 @@
 * **Cryptography:** js-sha256 (streamed SHA-256), spark-md5 (streamed MD5)
 * **Persistence:** Client-side IndexedDB
 * **Build & CI/CD:** Vite, Bun, GitHub Actions, GitHub Pages
+
+## 📄 License
+
+This project is open-source and licensed under the MIT License.
