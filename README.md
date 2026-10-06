@@ -2,7 +2,7 @@
 
 *An Evidence Custody & Hash Manifest Engine*
 
-*Engineered by R. Hanks*
+*Engineered by Ryan C. Hanks*
 
 > Part of the **[CustodyFlow](https://github.com/ryandus/custodyflow)** suite: defensible DFIR and eDiscovery workflow tools.
 
