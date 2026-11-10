@@ -10,3 +10,7 @@ coverage/
 # graphify (local knowledge graph + machine-specific hooks)
 graphify-out/
 .claude/settings.json
+
+# Streamlit GUI audit log (local, per-operator)
+gui/audit/
+__pycache__/
