@@ -1,0 +1,265 @@
+{
+  "complianceStandard": "ISO/IEC 27037:2012 - Digital Evidence Handling & Custody",
+  "generator": "Forensic Hash & Chain-of-Custody Manifest Generator v1.0",
+  "exportTimestamp": "2026-03-20T16:45:00.000Z",
+  "session": {
+    "sessionId": "demo-session-0001",
+    "version": "1.0-ISO27037",
+    "createdTimestamp": "2026-03-02T09:20:00.000Z",
+    "lastSavedTimestamp": "2026-03-20T16:44:30.000Z"
+  },
+  "caseMetadata": {
+    "caseNumber": "DEMO-2026-0001",
+    "evidenceItemNumber": "ITEM-01",
+    "examinerName": "Demo Examiner A",
+    "examinerBadgeId": "SYN-001",
+    "agencyOrganization": "Synthetic Forensics Unit (demo data)",
+    "mediaType": "SATA SSD / HDD",
+    "sourceSerialNumber": "SYNTHETIC-SN-0000",
+    "sourceAcquisitionMethod": "Forensic Container (E01 / AFF4 / VHDX)",
+    "collectionDateTime": "2026-03-02T09:15",
+    "collectionTimeZone": "UTC",
+    "locationFound": "Synthetic workstation WS-04 (demo data)",
+    "writeBlockerUsed": "Hardware Write Blocker (Tableau / WiebeTech)",
+    "notes": "Synthetic demo data. Not a real case."
+  },
+  "evidenceIntegrityManifest": {
+    "totalFilesCount": 8,
+    "totalSizeBytes": 12031300,
+    "totalSizeFormatted": "11.47 MB",
+    "verificationSummary": {
+      "verifiedCount": 5,
+      "mismatchCount": 1,
+      "unverifiedCount": 2
+    },
+    "files": [
+      {
+        "sequence": 1,
+        "fileName": "WS-04_disk0.E01",
+        "relativePath": "images/WS-04_disk0.E01",
+        "fileSizeBytes": 4600000,
+        "fileSizeFormatted": "4.39 MB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-03-02T11:42:10.000Z",
+        "cryptographicHashes": {
+          "sha256": "9072fee8472fb63d677ba8dcdb250e5445d8c94a6b5617a54bba741fddf7ae5b",
+          "md5": "425d7bb5fe5afd0ea96ec4b49409b902"
+        },
+        "verification": {
+          "expectedHashProvided": "9072fee8472fb63d677ba8dcdb250e5445d8c94a6b5617a54bba741fddf7ae5b",
+          "verificationStatus": "match",
+          "matchedAlgorithm": "SHA-256"
+        }
+      },
+      {
+        "sequence": 2,
+        "fileName": "WS-04_memdump.raw",
+        "relativePath": "memory/WS-04_memdump.raw",
+        "fileSizeBytes": 3750000,
+        "fileSizeFormatted": "3.58 MB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-03-02T09:31:55.000Z",
+        "cryptographicHashes": {
+          "sha256": "8042e824ed651c30a49730dcc1991a2a6c24602996e5e1a5696bb18f6bc426b8",
+          "md5": "fdabb2f9165ea4a81bdfe9eaa02b9ea1"
+        },
+        "verification": {
+          "expectedHashProvided": "8042e824ed651c30a49730dcc1991a2a6c24602996e5e1a5696bb18f6bc426b8",
+          "verificationStatus": "match",
+          "matchedAlgorithm": "SHA-256"
+        }
+      },
+      {
+        "sequence": 3,
+        "fileName": "Security.evtx",
+        "relativePath": "triage/Windows/System32/winevt/Logs/Security.evtx",
+        "fileSizeBytes": 2000000,
+        "fileSizeFormatted": "1.91 MB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-03-01T23:58:41.000Z",
+        "cryptographicHashes": {
+          "sha256": "9f686ca274479d25eb341ec16385ffb49f83d0988d6079a139a05ee87a7ee37c",
+          "md5": "d44ed1243d740115d65a08be97a64b52"
+        },
+        "verification": {
+          "expectedHashProvided": "9f686ca274479d25eb341ec16385ffb49f83d0988d6079a139a05ee87a7ee37c",
+          "verificationStatus": "match",
+          "matchedAlgorithm": "SHA-256"
+        }
+      },
+      {
+        "sequence": 4,
+        "fileName": "$MFT",
+        "relativePath": "triage/$MFT",
+        "fileSizeBytes": 720000,
+        "fileSizeFormatted": "703.12 KB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-03-01T23:59:02.000Z",
+        "cryptographicHashes": {
+          "sha256": "8c95082d6db517d17a1b66cdf498df486556704f70f5dad7944892b53459447b",
+          "md5": "fa0be1094c0cd66af381f2a1eaa3cc56"
+        },
+        "verification": {
+          "expectedHashProvided": "fa0be1094c0cd66af381f2a1eaa3cc56",
+          "verificationStatus": "match",
+          "matchedAlgorithm": "MD5"
+        }
+      },
+      {
+        "sequence": 5,
+        "fileName": "NTUSER.DAT",
+        "relativePath": "triage/Users/demo.user/NTUSER.DAT",
+        "fileSizeBytes": 680000,
+        "fileSizeFormatted": "664.06 KB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-02-27T22:14:09.000Z",
+        "cryptographicHashes": {
+          "sha256": "aede94786a3f3c52f5f303d56e40b72fd2db3872cf424c9ff6cc2cbfdc3a03b5",
+          "md5": "2935138985667d18a88ad3ccd4f547f0"
+        },
+        "verification": {
+          "expectedHashProvided": "0000000000000000000000000000000000000000000000000000000000000000",
+          "verificationStatus": "mismatch",
+          "matchedAlgorithm": null
+        }
+      },
+      {
+        "sequence": 6,
+        "fileName": "History",
+        "relativePath": "triage/Users/demo.user/AppData/Local/Browser/History",
+        "fileSizeBytes": 265000,
+        "fileSizeFormatted": "258.79 KB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-02-27T21:47:30.000Z",
+        "cryptographicHashes": {
+          "sha256": "1d9d66253a561e8cc90ffd1f040d81f09a49565c214a829e0f6aae28ec623eb4",
+          "md5": "d50d22f0090b74259691162e5b94850c"
+        },
+        "verification": {
+          "expectedHashProvided": null,
+          "verificationStatus": "unverified",
+          "matchedAlgorithm": null
+        }
+      },
+      {
+        "sequence": 7,
+        "fileName": "SYNTHETIC.EXE-1A2B3C4D.pf",
+        "relativePath": "triage/Windows/Prefetch/SYNTHETIC.EXE-1A2B3C4D.pf",
+        "fileSizeBytes": 15000,
+        "fileSizeFormatted": "14.65 KB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-02-26T03:12:44.000Z",
+        "cryptographicHashes": {
+          "sha256": "db5f09499c377bc7770de2a315911b6ba8787cbaf83d688e3876793e0b6321ef",
+          "md5": "d41b27ec428b37ada8a1419a3b48f8d0"
+        },
+        "verification": {
+          "expectedHashProvided": null,
+          "verificationStatus": "unverified",
+          "matchedAlgorithm": null
+        }
+      },
+      {
+        "sequence": 8,
+        "fileName": "acquisition_log.txt",
+        "relativePath": "notes/acquisition_log.txt",
+        "fileSizeBytes": 1300,
+        "fileSizeFormatted": "1.27 KB",
+        "mimeType": "application/octet-stream",
+        "lastModifiedTimestamp": "2026-03-02T11:50:00.000Z",
+        "cryptographicHashes": {
+          "sha256": "b913d0de729f69a38405863ef97b5a5bf673775a5b50244f9e4e615651384e0a",
+          "md5": "f4fb46b59166ed82b1acd00ecc68044a"
+        },
+        "verification": {
+          "expectedHashProvided": "b913d0de729f69a38405863ef97b5a5bf673775a5b50244f9e4e615651384e0a",
+          "verificationStatus": "match",
+          "matchedAlgorithm": "SHA-256"
+        }
+      }
+    ]
+  },
+  "chainOfCustodyLedger": [
+    {
+      "sequenceNumber": 1,
+      "timestamp": "2026-03-02T12:30:00.000Z",
+      "releasedBy": {
+        "name": "Demo Examiner A",
+        "role": "Lead Examiner",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "receivedBy": {
+        "name": "Demo Custodian B",
+        "role": "Evidence Custodian",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "transferPurpose": "Intake to evidence locker",
+      "transferLocation": "Synthetic Lab, Room 1",
+      "packagingAndCondition": "Sealed bag, tape SYN-0001 intact",
+      "signeeInitials": "DA",
+      "hasDigitalSignature": false
+    },
+    {
+      "sequenceNumber": 2,
+      "timestamp": "2026-03-05T08:05:00.000Z",
+      "releasedBy": {
+        "name": "Demo Custodian B",
+        "role": "Evidence Custodian",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "receivedBy": {
+        "name": "Demo Analyst C",
+        "role": "Forensic Analyst",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "transferPurpose": "Release for analysis",
+      "transferLocation": "Synthetic Lab, Room 1",
+      "packagingAndCondition": "Seal SYN-0001 intact on release",
+      "signeeInitials": "DB",
+      "hasDigitalSignature": false
+    },
+    {
+      "sequenceNumber": 3,
+      "timestamp": "2026-03-12T16:20:00.000Z",
+      "releasedBy": {
+        "name": "Demo Analyst C",
+        "role": "Forensic Analyst",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "receivedBy": {
+        "name": "Demo Custodian B",
+        "role": "Evidence Custodian",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "transferPurpose": "Return after analysis",
+      "transferLocation": "Synthetic Lab, Room 1",
+      "packagingAndCondition": "Resealed, tape SYN-0002",
+      "signeeInitials": "DC",
+      "hasDigitalSignature": false
+    },
+    {
+      "sequenceNumber": 4,
+      "timestamp": "2026-03-19T10:00:00.000Z",
+      "releasedBy": {
+        "name": "Demo Custodian B",
+        "role": "Evidence Custodian",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "receivedBy": {
+        "name": "Demo Reviewer D",
+        "role": "Review Counsel",
+        "agency": "Synthetic Forensics Unit (demo data)"
+      },
+      "transferPurpose": "Transfer for legal review",
+      "transferLocation": "Synthetic Lab, Front Desk",
+      "packagingAndCondition": "Seal SYN-0002 intact on release",
+      "signeeInitials": "DB",
+      "hasDigitalSignature": false
+    }
+  ],
+  "manifestFingerprint": {
+    "algorithm": "SHA-256",
+    "value": "a127be59dd4edc89919986a944f247957bb0d251f4fbdcf823604692f00df141",
+    "canonicalPayload": "{\"caseNumber\":\"DEMO-2026-0001\",\"evidenceItemNumber\":\"ITEM-01\",\"leadExaminer\":\"Demo Examiner A\",\"badgeId\":\"SYN-001\",\"agency\":\"Synthetic Forensics Unit (demo data)\",\"acquisitionMethod\":\"Forensic Container (E01 / AFF4 / VHDX)\",\"writeBlocker\":\"Hardware Write Blocker (Tableau / WiebeTech)\",\"collectionTimestamp\":\"2026-03-02T09:15\",\"filesCount\":8,\"files\":[{\"name\":\"WS-04_disk0.E01\",\"sizeBytes\":4600000,\"sha256\":\"9072fee8472fb63d677ba8dcdb250e5445d8c94a6b5617a54bba741fddf7ae5b\",\"md5\":\"425d7bb5fe5afd0ea96ec4b49409b902\",\"status\":\"match\"},{\"name\":\"WS-04_memdump.raw\",\"sizeBytes\":3750000,\"sha256\":\"8042e824ed651c30a49730dcc1991a2a6c24602996e5e1a5696bb18f6bc426b8\",\"md5\":\"fdabb2f9165ea4a81bdfe9eaa02b9ea1\",\"status\":\"match\"},{\"name\":\"Security.evtx\",\"sizeBytes\":2000000,\"sha256\":\"9f686ca274479d25eb341ec16385ffb49f83d0988d6079a139a05ee87a7ee37c\",\"md5\":\"d44ed1243d740115d65a08be97a64b52\",\"status\":\"match\"},{\"name\":\"$MFT\",\"sizeBytes\":720000,\"sha256\":\"8c95082d6db517d17a1b66cdf498df486556704f70f5dad7944892b53459447b\",\"md5\":\"fa0be1094c0cd66af381f2a1eaa3cc56\",\"status\":\"match\"},{\"name\":\"NTUSER.DAT\",\"sizeBytes\":680000,\"sha256\":\"aede94786a3f3c52f5f303d56e40b72fd2db3872cf424c9ff6cc2cbfdc3a03b5\",\"md5\":\"2935138985667d18a88ad3ccd4f547f0\",\"status\":\"mismatch\"},{\"name\":\"History\",\"sizeBytes\":265000,\"sha256\":\"1d9d66253a561e8cc90ffd1f040d81f09a49565c214a829e0f6aae28ec623eb4\",\"md5\":\"d50d22f0090b74259691162e5b94850c\",\"status\":\"unverified\"},{\"name\":\"SYNTHETIC.EXE-1A2B3C4D.pf\",\"sizeBytes\":15000,\"sha256\":\"db5f09499c377bc7770de2a315911b6ba8787cbaf83d688e3876793e0b6321ef\",\"md5\":\"d41b27ec428b37ada8a1419a3b48f8d0\",\"status\":\"unverified\"},{\"name\":\"acquisition_log.txt\",\"sizeBytes\":1300,\"sha256\":\"b913d0de729f69a38405863ef97b5a5bf673775a5b50244f9e4e615651384e0a\",\"md5\":\"f4fb46b59166ed82b1acd00ecc68044a\",\"status\":\"match\"}],\"custodyLedgerEntries\":[{\"seq\":1,\"timestamp\":\"2026-03-02T12:30:00.000Z\",\"releasedBy\":\"Demo Examiner A\",\"receivedBy\":\"Demo Custodian B\",\"purpose\":\"Intake to evidence locker\",\"initials\":\"DA\"},{\"seq\":2,\"timestamp\":\"2026-03-05T08:05:00.000Z\",\"releasedBy\":\"Demo Custodian B\",\"receivedBy\":\"Demo Analyst C\",\"purpose\":\"Release for analysis\",\"initials\":\"DB\"},{\"seq\":3,\"timestamp\":\"2026-03-12T16:20:00.000Z\",\"releasedBy\":\"Demo Analyst C\",\"receivedBy\":\"Demo Custodian B\",\"purpose\":\"Return after analysis\",\"initials\":\"DC\"},{\"seq\":4,\"timestamp\":\"2026-03-19T10:00:00.000Z\",\"releasedBy\":\"Demo Custodian B\",\"receivedBy\":\"Demo Reviewer D\",\"purpose\":\"Transfer for legal review\",\"initials\":\"DB\"}]}"
+  }
+}

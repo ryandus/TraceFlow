@@ -1,0 +1,14 @@
+# Local only: bind to loopback, no telemetry, no "Deploy" button.
+[server]
+address = "localhost"
+headless = true
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#1f4e79"
